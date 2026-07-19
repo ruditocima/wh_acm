@@ -34,34 +34,6 @@
   window.fbChild = child;
   window.fbRemove = remove;
 
-window.syncAllToGoogleSheet = function() {
-    if (!confirm("Yakin ingin menyinkronkan SEMUA data ke Google Sheets? Proses ini akan menimpa data lama di Spreadsheet.")) {
-        return;
-    }
-
-      const scriptUrl = 'https://script.google.com/macros/s/AKfycbyY2C6cSgyDs92No8Andmh4Dx4gbnOm0lYU2gwlnzoIBY5gxvOL1p_DePQhODpOCSZLDw/exec'; 
-
-     fetch(scriptUrl, {
-        method: 'POST',
-        // Hapus mode: 'no-cors'. Gunakan standar saja.
-        headers: { 
-            'Content-Type': 'application/json' 
-        },
-        body: JSON.stringify({ 
-            action: 'full_sync', 
-            data: db 
-        })
-    })
-    .then(response => response.text()) // Ambil response sebagai teks
-    .then(result => {
-        console.log("Response dari Google:", result);
-        alert("Sinkronisasi Selesai: " + result);
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        alert("Gagal koneksi. Cek Console.");
-    });
-}
 
   // Beri tahu skrip utama bahwa Firebase sudah siap dieksekusi
   if (typeof window.initApp === 'function') {
