@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Aplikasi Pergudangan ACM Final</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
     <style>
         /* Memperkecil padding tabel agar lebar kolom proporsional menyesuaikan huruf 9pt */
         .table-compact th, .table-compact td { padding: 0.25rem 0.5rem; }
@@ -115,7 +117,68 @@
                 renderTable(currentSection);
             }
         }
+function printNotaPDF(t) {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF('p', 'pt', 'a4'); // Kertas A4
+            
+            // Ambil data terkait (cari nama gudang/proyek dari kodenya)
+            let gdgAsal = db.gudang.find(g => g['Kode Gudang'] === t['Gudang Asal'])?.['Nama Gudang'] || '-';
+            let gdgTujuan = db.gudang.find(g => g['Kode Gudang'] === t['Gudang Tujuan'])?.['Nama Gudang'] || '-';
+            let nmProyek = db.project.find(p => p['Kode Project'] === t['Kode Project'])?.['Nama Project'] || '-';
 
+            // Menggambar Header Teks
+            doc.setFontSize(16);
+            doc.setFont("helvetica", "bold");
+            doc.text("NOTA PERMINTAAN MATERIAL", 40, 60);
+
+            doc.setFontSize(10);
+            doc.setFont("helvetica", "normal");
+            doc.text(`No. Doc : ${t['No Doc'] || '-'}`, 40, 85);
+            doc.text(`Tanggal : ${t['Tanggal'] || '-'}`, 400, 85);
+
+            // Membuat Tabel Data seperti format Excel
+            doc.autoTable({
+                startY: 110,
+                head: [['ID', 'NAMA MATERIAL', 'SAT', 'QTY', 'DARI', 'TUJUAN', 'NAMA PROYEK']],
+                body: [
+                    [
+                        t['Kode Barang'] || '-',
+                        t['Nama Barang (Auto)'] || '-',
+                        '-', // Satuan (jika tidak ada di database saat ini, set dash atau ubah sesuai field)
+                        t['Jumlah'] || '0',
+                        gdgAsal,
+                        gdgTujuan,
+                        nmProyek
+                    ]
+                ],
+                theme: 'grid',
+                headStyles: { 
+                    fillColor: [220, 220, 220], // Warna abu-abu header tabel excel
+                    textColor: [0, 0, 0],
+                    fontStyle: 'bold',
+                    halign: 'center'
+                },
+                bodyStyles: {
+                    halign: 'center',
+                    valign: 'middle'
+                },
+                columnStyles: {
+                    1: { halign: 'left' } // Nama material rata kiri
+                },
+                styles: { fontSize: 9 }
+            });
+
+            // Bagian Bawah: Pickup By
+            let finalY = doc.lastAutoTable.finalY + 40;
+            doc.setFontSize(10);
+            doc.text("Pickup by:", 40, finalY);
+            doc.text(`- ${t['Petugas'] || '.........................'}`, 40, finalY + 20);
+            doc.text("- .........................", 40, finalY + 40);
+            doc.text("- .........................", 40, finalY + 60);
+
+            // Output ke browser
+            doc.save(`NOTA_${t['No Doc']}.pdf`);
+        }
         function exportCSV() {
             let data = db[currentSection];
             if (data.length === 0) return alert("Tidak ada data untuk diexport!");
@@ -461,8 +524,26 @@ function exportRekapStokCSV() {
         function openModal(index) {
             editIndex = index;
             document.getElementById('btn-save').classList.remove('hidden');
-            const form = document.getElementById('data-form');
+            let btnPdf = document.getElementById('btn-print-pdf');
+            if(!btnPdf) {
+                // Buat elemen tombol jika belum ada
+                btnPdf = document.createElement('button');
+                btnPdf.id = 'btn-print-pdf';
+                btnPdf.className = "px-4 py-2 bg-red-600 text-white rounded hover:bg-red-500 text-[9pt] hidden";
+                btnPdf.innerText = "Print PDF";
+                // Insert sebelum tombol Tutup/Simpan
+                document.getElementById('btn-save').parentNode.insertBefore(btnPdf, document.getElementById('btn-save'));
+            }
             
+            if (currentSection === 'transaksi' && index !== -1) {
+                btnPdf.classList.remove('hidden');
+                btnPdf.onclick = function() { printNotaPDF(db.transaksi[index]); };
+            } else {
+                btnPdf.classList.add('hidden');
+            }
+
+            const form = document.getElementById('data-form');
+                      
             if (currentSection === 'transaksi') {
                 form.className = "grid grid-cols-3 gap-4 text-[9pt]";
             } else {
