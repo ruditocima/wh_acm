@@ -118,67 +118,76 @@
             }
         }
 function printNotaPDF(t) {
-            const { jsPDF } = window.jspdf;
-            const doc = new jsPDF('p', 'pt', 'a4'); // Kertas A4
-            
-            // Ambil data terkait (cari nama gudang/proyek dari kodenya)
-            let gdgAsal = db.gudang.find(g => g['Kode Gudang'] === t['Gudang Asal'])?.['Nama Gudang'] || '-';
-            let gdgTujuan = db.gudang.find(g => g['Kode Gudang'] === t['Gudang Tujuan'])?.['Nama Gudang'] || '-';
-            let nmProyek = db.project.find(p => p['Kode Project'] === t['Kode Project'])?.['Nama Project'] || '-';
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF('p', 'pt', 'a4'); // Kertas A4
+    
+    // Ambil data terkait (cari nama gudang/proyek dari kodenya)
+    let gdgAsal = db.gudang.find(g => g['Kode Gudang'] === t['Gudang Asal'])?.['Nama Gudang'] || '-';
+    let gdgTujuan = db.gudang.find(g => g['Kode Gudang'] === t['Gudang Tujuan'])?.['Nama Gudang'] || '-';
+    let nmProyek = db.project.find(p => p['Kode Project'] === t['Kode Project'])?.['Nama Project'] || '-';
 
-            // Menggambar Header Teks
-            doc.setFontSize(16);
-            doc.setFont("helvetica", "bold");
-            doc.text("NOTA PERMINTAAN MATERIAL", 40, 60);
+    // Menggambar Header Teks
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "bold");
+    doc.text("NOTA PERMINTAAN MATERIAL", 40, 60);
 
-            doc.setFontSize(10);
-            doc.setFont("helvetica", "normal");
-            doc.text(`No. Doc : ${t['No Doc'] || '-'}`, 40, 85);
-            doc.text(`Tanggal : ${t['Tanggal'] || '-'}`, 400, 85);
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "normal");
+    doc.text(`No. Doc : ${t['No Doc'] || '-'}`, 40, 85);
+    doc.text(`Tanggal : ${t['Tanggal'] || '-'}`, 400, 85);
 
-            // Membuat Tabel Data seperti format Excel
-            doc.autoTable({
-                startY: 110,
-                head: [['ID', 'NAMA MATERIAL', 'SAT', 'QTY', 'DARI', 'TUJUAN', 'NAMA PROYEK']],
-                body: [
-                    [
-                        t['Kode Barang'] || '-',
-                        t['Nama Barang (Auto)'] || '-',
-                        '-', // Satuan (jika tidak ada di database saat ini, set dash atau ubah sesuai field)
-                        t['Jumlah'] || '0',
-                        gdgAsal,
-                        gdgTujuan,
-                        nmProyek
-                    ]
-                ],
-                theme: 'grid',
-                headStyles: { 
-                    fillColor: [220, 220, 220], // Warna abu-abu header tabel excel
-                    textColor: [0, 0, 0],
-                    fontStyle: 'bold',
-                    halign: 'center'
-                },
-                bodyStyles: {
-                    halign: 'center',
-                    valign: 'middle'
-                },
-                columnStyles: {
-                    1: { halign: 'left' } // Nama material rata kiri
-                },
-                styles: { fontSize: 9 }
-            });
+    // Membuat Tabel Data seperti format Excel
+    doc.autoTable({
+        startY: 110,
+        head: [['ID', 'NAMA MATERIAL', 'SAT', 'QTY', 'DARI', 'TUJUAN', 'NAMA PROYEK', 'KETERANGAN']],
+        body: [
+            [
+                t['Kode Barang'] || '-',
+                t['Nama Barang (Auto)'] || '-',
+                '-', 
+                t['Jumlah'] || '0',
+                gdgAsal,
+                gdgTujuan,
+                nmProyek
+            ]
+        ],
+        theme: 'grid',
+        headStyles: { 
+            fillColor: [220, 220, 220], 
+            textColor: [0, 0, 0],
+            fontStyle: 'bold',
+            halign: 'center'
+        },
+        bodyStyles: {
+            halign: 'center',
+            valign: 'middle'
+        },
+        columnStyles: {
+            1: { halign: 'left' } 
+        },
+        styles: { fontSize: 9 }
+    });
 
-            // Bagian Bawah: Pickup By
-            let finalY = doc.lastAutoTable.finalY + 40;
-            doc.setFontSize(10);
-            doc.text("Pickup by:", 40, finalY);
-            doc.text(`- ${t['Petugas'] || '.........................'}`, 40, finalY + 20);
-            doc.text("- .........................", 40, finalY + 40);
-            doc.text("- .........................", 40, finalY + 60);
+    // --- BAGIAN BAWAH YANG DIUBAH ---
+    let finalY = doc.lastAutoTable.finalY + 40;
+    doc.setFontSize(10);
 
-            // Output ke browser
-            doc.save(`NOTA_${t['No Doc']}.pdf`);
-        }
+    // 1. KIRI: Pickup by dan garis bawah
+    doc.text("Pickup by,", 40, finalY);
+    // Menampilkan nama petugas (jika kosong, beri spasi agar garis bawah tetap rapi)
+    let namaPetugas = t['Petugas'] || '                                 '; 
+    doc.text(namaPetugas, 40, finalY + 50);
+    doc.line(40, finalY + 52, 160, finalY + 52); // Menggambar garis bawah di X=40 s/d X=160
+
+    // 2. KANAN: Diketahui oleh dan RUDI
+    // Titik X=420 digunakan agar teks berada di sebelah kanan kertas
+    doc.text("Diketahui oleh,", 420, finalY);
+    doc.text("RUDI", 420, finalY + 50);
+    // --------------------------------
+
+    // Output ke browser
+    doc.save(`NOTA_${t['No Doc']}.pdf`);
+}
         function exportCSV() {
             let data = db[currentSection];
             if (data.length === 0) return alert("Tidak ada data untuk diexport!");
