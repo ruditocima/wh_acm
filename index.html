@@ -126,29 +126,37 @@ function printNotaPDF(t) {
     let gdgTujuan = db.gudang.find(g => g['Kode Gudang'] === t['Gudang Tujuan'])?.['Nama Gudang'] || '-';
     let nmProyek = db.project.find(p => p['Kode Project'] === t['Kode Project'])?.['Nama Project'] || '-';
 
-    // Menggambar Header Teks
-    doc.setFontSize(12);
+    // --- BAGIAN HEADER ---
+    doc.setFontSize(14); // Req 5: Font diperkecil (sebelumnya 16)
     doc.setFont("helvetica", "bold");
     doc.text("NOTA PERMINTAAN MATERIAL", 40, 60);
+    
+    // Req 6: Menambahkan nama PT dengan font yang sama persis di bawahnya
+    doc.text("PT Acero Cetha Metalindo", 40, 75); 
 
-    doc.setFontSize(9);
+    doc.setFontSize(9); // Req 5: Font teks umum diperkecil (sebelumnya 10)
     doc.setFont("helvetica", "normal");
-    doc.text(`No. Doc : ${t['No Doc'] || '-'}`, 40, 85);
-    doc.text(`Tanggal : ${t['Tanggal'] || '-'}`, 400, 85);
+    doc.text(`No. Doc : ${t['No Doc'] || '-'}`, 40, 100);
+    
+    // Req 2: Menambahkan ID (Auto) tepat di bawah No. Doc
+    doc.text(`ID (Auto) : ${t['ID (Auto)'] || '-'}`, 40, 112); 
+    
+    doc.text(`Tanggal : ${t['Tanggal'] || '-'}`, 400, 100);
 
-    // Membuat Tabel Data seperti format Excel
+    // --- BAGIAN TABEL ---
+    // Req 1 & Req 3: Menghapus SAT dan menambahkan KETERANGAN
     doc.autoTable({
-        startY: 110,
-        head: [['ID', 'NAMA MATERIAL', 'SAT', 'QTY', 'DARI', 'TUJUAN', 'NAMA PROYEK']],
+        startY: 125, // Posisi diturunkan sedikit karena header bertambah
+        head: [['ID', 'NAMA MATERIAL', 'QTY', 'DARI', 'TUJUAN', 'NAMA PROYEK', 'KETERANGAN']],
         body: [
             [
                 t['Kode Barang'] || '-',
                 t['Nama Barang (Auto)'] || '-',
-                '-', 
                 t['Jumlah'] || '0',
                 gdgAsal,
                 gdgTujuan,
-                nmProyek
+                nmProyek,
+                t['Keterangan'] || '-' // Mengambil data keterangan dari database
             ]
         ],
         theme: 'grid',
@@ -165,25 +173,28 @@ function printNotaPDF(t) {
         columnStyles: {
             1: { halign: 'left' } 
         },
-        styles: { fontSize: 9 }
+        styles: { fontSize: 8 } // Req 5: Font tabel diperkecil (sebelumnya 9)
     });
 
-    // --- BAGIAN BAWAH YANG DIUBAH ---
+    // --- BAGIAN TANDA TANGAN ---
     let finalY = doc.lastAutoTable.finalY + 40;
-    doc.setFontSize(10);
+    doc.setFontSize(9); 
 
     // 1. KIRI: Pickup by dan garis bawah
     doc.text("Pickup by,", 40, finalY);
-    // Menampilkan nama petugas (jika kosong, beri spasi agar garis bawah tetap rapi)
     let namaPetugas = t['Petugas'] || '                                 '; 
     doc.text(namaPetugas, 40, finalY + 50);
-    doc.line(40, finalY + 52, 160, finalY + 52); // Menggambar garis bawah di X=40 s/d X=160
+    doc.line(40, finalY + 52, 140, finalY + 52); 
 
-    // 2. KANAN: Diketahui oleh dan RUDI
-    // Titik X=420 digunakan agar teks berada di sebelah kanan kertas
+    // 2. TENGAH: Disetujui oleh (Req 4)
+    // Diletakkan di koordinat X=230 agar posisinya tepat di tengah
+    doc.text("Disetujui oleh,", 230, finalY);
+    // Garis kosong ditarik sejajar (Y+52) dengan posisi tulisan RUDI
+    doc.line(230, finalY + 52, 330, finalY + 52); 
+
+    // 3. KANAN: Diketahui oleh dan RUDI
     doc.text("Diketahui oleh,", 420, finalY);
     doc.text("RUDI", 420, finalY + 50);
-    // --------------------------------
 
     // Output ke browser
     doc.save(`NOTA_${t['No Doc']}.pdf`);
