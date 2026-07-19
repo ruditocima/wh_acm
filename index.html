@@ -34,28 +34,22 @@
   window.fbChild = child;
   window.fbRemove = remove;
 
-    function syncToGoogleSheet(item, section) {
-    // Hanya contoh untuk data transaksi. Anda bisa menyesuaikan untuk master barang.
-    if (section !== 'transaksi') return; 
+window.syncToGoogleSheet = function(item, section) {
+      if (section !== 'transaksi') return; 
 
-    // GANTI URL DI BAWAH INI DENGAN URL WEB APP DARI GOOGLE APPS SCRIPT ANDA
-    const scriptUrl = 'https://script.google.com/macros/s/AKfycbyLEnKI0RuTRshK63PYUUl3c5og-N_hORrfthNiknS1A7WJN8Fmy29bXlQHqumetDpfrw/exec'; 
+      const scriptUrl = 'https://script.google.com/macros/s/AKfycbyLEnKI0RuTRshK63PYUUl3c5og-N_hORrfthNiknS1A7WJN8Fmy29bXlQHqumetDpfrw/exec'; 
 
-    fetch(scriptUrl, {
-        method: 'POST',
-        body: JSON.stringify({
-            section: section,
-            item: item
-        })
-    })
-    .then(response => response.json())
-    .then(data => {
-        console.log('Berhasil kirim ke Spreadsheet:', data);
-    })
-    .catch(error => {
-        console.error('Gagal kirim ke Spreadsheet:', error);
-    });
-}
+      fetch(scriptUrl, {
+          method: 'POST',
+          body: JSON.stringify({
+              section: section,
+              item: item
+          })
+      })
+      .then(response => response.json())
+      .then(data => console.log('Berhasil kirim ke Spreadsheet:', data))
+      .catch(error => console.error('Gagal kirim ke Spreadsheet:', error));
+  }
   // Beri tahu skrip utama bahwa Firebase sudah siap dieksekusi
   if (typeof window.initApp === 'function') {
       window.initApp();
