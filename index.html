@@ -34,22 +34,29 @@
   window.fbChild = child;
   window.fbRemove = remove;
 
-window.syncToGoogleSheet = function(item, section) {
-      if (section !== 'transaksi') return; 
+window.syncAllToGoogleSheet = function() {
+    if (!confirm("Yakin ingin menyinkronkan SEMUA data ke Google Sheets? Proses ini akan menimpa data lama di Spreadsheet.")) {
+        return;
+    }
 
-      const scriptUrl = 'https://script.google.com/macros/s/AKfycbw-SjmqPFGVsfkH9ogY0qcFzucaFv1QlSS4SRG_7QAEF7BJEN86MYyopHMlCMd9pHYxOQ/exec'; 
+      const scriptUrl = 'https://script.google.com/macros/s/AKfycbyTBbIq8yceocwasKobNLtjHArcHeq47BnXL_Yvmpo3uL472EF9697dg26c7dIWYOCtPg/exec'; 
 
       fetch(scriptUrl, {
-          method: 'POST',
-          body: JSON.stringify({
-              section: section,
-              item: item
-          })
-      })
-      .then(response => response.json())
-      .then(data => console.log('Berhasil kirim ke Spreadsheet:', data))
-      .catch(error => console.error('Gagal kirim ke Spreadsheet:', error));
-  }
+        method: 'POST',
+        body: JSON.stringify({
+            action: 'full_sync',
+            data: db // Mengirim seluruh objek db
+        })
+    })
+    .then(response => response.json())
+    .then(result => {
+        alert("Sinkronisasi Selesai: " + result.message);
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert("Gagal sinkronisasi. Cek Console (F12).");
+    });
+}
   // Beri tahu skrip utama bahwa Firebase sudah siap dieksekusi
   if (typeof window.initApp === 'function') {
       window.initApp();
