@@ -522,18 +522,18 @@
 
            // ... (di dalam fungsi saveData)
             if (editIndex === -1) {
-                if(currentSection === 'transaksi' && !newItem['ID (Auto)']) newItem['ID (Auto)'] = 'TX-' + Date.now().toString().slice(-5);
+                if(currentSection === 'transaksi' && !newItem['ID (Auto)']) {
+                newItem['ID (Auto)'] = 'TX-' + Date.now().toString().slice(-5);
+                }
                 db[currentSection].push(newItem);
-            }
-            else {
+            } else {
                 db[currentSection][editIndex] = newItem;
             }
 
             saveToLocal(); // Tetap simpan lokal jika perlu (opsional)
             syncToFirebase(); // <--- TAMBAHKAN INI UNTUK KIRIM KE FIREBASE
-            syncToGoogleSheet(newItem, currentSection);
             closeModal();
-           renderDashboard(); // Render ulang tampilan tabel/dashboard
+            renderDashboard(); // Render ulang tampilan tabel/dashboard
         } 
            
 // Fungsi untuk sinkronisasi ke Firebase
