@@ -145,14 +145,23 @@
             `;
         }
 
-        function renderTable(section) {
-            currentSection = section;
-            
-            if (section === 'transaksi') {
-                db[section].sort((a, b) => new Date(b['Tanggal'] || 0) - new Date(a['Tanggal'] || 0));
-            }
-            
-            let data = db[section];
+    function renderTable(section) {
+    currentSection = section;
+    
+    if (section === 'transaksi') {
+        db[section].sort((a, b) => new Date(b['Tanggal'] || 0) - new Date(a['Tanggal'] || 0));
+    } else if (section === 'barang') {
+        // PERMINTAAN 1: Mengurutkan Ascending berdasarkan Kategori
+        db[section].sort((a, b) => {
+            let catA = (a['Kategori'] || "").toLowerCase();
+            let catB = (b['Kategori'] || "").toLowerCase();
+            if (catA < catB) return -1;
+            if (catA > catB) return 1;
+            return 0;
+        });
+    }
+    
+    let data = db[section];
             let exportBtn = (section === 'transaksi' || section === 'barang') ? `<button onclick="exportCSV()" class="bg-green-600 text-white px-4 py-2 rounded shadow hover:bg-green-500 mr-2 text-[9pt]">Export CSV</button>` : '';
             
             let html = `
@@ -479,10 +488,24 @@
                 if(!docVal) {
                     newItem['No Doc'] = generateUniqueDocCode();
                 } else {
-                    let isDuplicate = db.transaksi.some((t, idx) => t['No Doc'] === docVal && idx !== editIndex);
+                    // PERMINTAAN 5: Penambahan (X00) berurutan jika duplikat
+                    let baseDoc = docVal;
+                    let isDuplicate = db.transaksi.some((t, idx) => t['No Doc'] === baseDoc && idx !== editIndex);
+                    
                     if(isDuplicate) {
-                        alert("No Doc sudah digunakan pada transaksi lain! Silakan gunakan kode unik yang berbeda.");
-                        return;
+                        let counter = 1;
+                        let newDoc = "";
+                        let stillDuplicate = true;
+                        
+                        while(stillDuplicate) {
+                            // Format: (X01), (X02), dst.
+                            let suffix = `(X${counter.toString().padStart(2, '0')})`; 
+                            newDoc = `${baseDoc} ${suffix}`;
+                            stillDuplicate = db.transaksi.some((t, idx) => t['No Doc'] === newDoc && idx !== editIndex);
+                            counter++;
+                        }
+                        newItem['No Doc'] = newDoc;
+                        alert(`No Doc sudah digunakan! Sistem otomatis mengubahnya menjadi: ${newDoc}`);
                     }
                 }
             }
