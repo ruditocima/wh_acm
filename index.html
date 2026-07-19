@@ -127,11 +127,11 @@ function printNotaPDF(t) {
             let nmProyek = db.project.find(p => p['Kode Project'] === t['Kode Project'])?.['Nama Project'] || '-';
 
             // --- 1. MENGGAMBAR HEADER TEKS (FONT DIPERKECIL) ---
-            doc.setFontSize(14); // Sebelumnya 16
+            doc.setFontSize(12); // Sebelumnya 16
             doc.setFont("helvetica", "bold");
             doc.text("NOTA PERMINTAAN MATERIAL", 40, 60);
 
-            doc.setFontSize(9); // Sebelumnya 10
+            doc.setFontSize(8); // Sebelumnya 10
             doc.setFont("helvetica", "normal");
             
             // Header Info
@@ -179,32 +179,24 @@ function printNotaPDF(t) {
             doc.setFontSize(9); // Font footer diperkecil (sebelumnya 10)
 
             // 3 Kolom Sejajar
-            let col1X = 120; // Diketahui oleh (RUDI)
+            let col1X = 120; // Pickup by
             let col2X = 300; // Disetujui oleh
-            let col3X = 480; // Pickup by
+            let col3X = 480; // Diketahui oleh (RUDI)
 
             // Judul TTD
             doc.setFont("helvetica", "normal");
-            doc.text("Diketahui oleh,", col1X, finalY, { align: "center" });
+            doc.text("Diketahui oleh,", col3X, finalY, { align: "center" });
             doc.text("Disetujui oleh,", col2X, finalY, { align: "center" });
-            doc.text("Pickup by,", col3X, finalY, { align: "center" });
+            doc.text("Pickup by,", col1X, finalY, { align: "center" });
 
             // Variabel sumbu Y yang sama agar semuanya sejajar
             let rudiY = finalY + 65; 
-
-            // --- GAMBAR TANDA TANGAN (SIGN) RUDI ---
-            // Base64 berupa gambar transparan tanda tangan sederhana
-            let signBase64 = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMgAAABkCAYAAADDhn8LAAAD90lEQVR4nO3dUbabMAwAUdH975l+0ZNyQBhbsoQ8978vATO2E5J02/ddAFz7E/0EgMwIBFAQCKAgEEBBIICCQAAFgQAKAgEUBAIoCARQEAigIBBAQSCAgkAABYEACgIBFAQCKAgEUKQOZNs2vg+MUFvW76Sf49j3fYt6LlhX6hUEiJYykKutFdstREgXCCEgk3SBAJmkCuTqhfnvi3NWF8yWJhAufmSUJpAz3tZFBikCebrnwTYLUcID4YL3w7kdFx7IGVsrG0cc27bthNIvNJA3Hydhm4UIYYFwkfvhkwh20myx2FrZIARbIYH0flKXbdZ7nLMx0wNhkPzcTTyszv3Ct1gMno3WiYcJ6p2pgVh8CYotQxvtZivaTQuEi9nP24mHsWgXtsWqNKNFXnBvHrvSOb9jPRZTArH+fnmWbdbvXeoss3Lruc3yfK14fWLAPZBqA6GZfaw9E0+1VcT7ozTTt1hVBuhuUGZFYvE4X568rsI4f8HOgmsgnj/dk2WbdXVMEc/nzbn98iQ1K4yDWyBfnp2etITvefyWE89Xxml2GIdpW6wvz1p3fo9pViRWf/Mr4xEVxsElkFm/ihixzdIeJ2K7ZXFuM64i0WEczAPJeLI93A2UZySeb5dnkSWMg/sWK+Mg9Gq90D0i8Z54oie2bGEcTAOJ+MHpiG1W7/0Gy+dndW4jL8AjioxhHEwDyXJQHnoubqtIZk08M1eRq8fKFMbBfItV/TsIb49rNJIZF+3ssbqLY+ZzaOXyGmT2wXpvs0b/puV2y/vcRrzWyRqHSIIvTH3JyED2RDLzNd2Mi/RrcYgQyCPvF9bRn+ma9dhfjEOkUCDe2yzPd41anu/sdwQtfTUOkUKBePCaxZ8iyfD/M3rd3BT5ThwiBNLEY0DvIom+YWd5rF+PQ6RYIJbbrCxvr0bfyLP8t1+LQ6RYIB68B7X194hnGn3cKnGIEMil2duczBfP23NRKQ6RgoFYbrNmDuz5EwjRF1XP41eLQ6RgIKMyfH0320XVck4qxiFCILcqDO6okZ8QqnL+SgbSu82Kfos1szd3/KvEIVI0kFGVBniUdi6qxyFCIP+wejzT7vaL1ItDpHAgvdusioM86nxOVolDpHAgb7B6tFspDhEC+U/lgR715ldcKikdSMs2i9WjX/U4RIoH8sYKgz3q90cVVjlfSwfC6tFnlThEFgikZZu10oDjnfKB3GH1QItlAzmwekCz7fsaEynbK/RYegUhDjxZOhDgyTKBnFcLVg+0WCYQoMcyL9KBHqwggIJAAAWBAAoCARQEAigIBFAQCKAgEEBBIICCQAAFgQAKAgEUBAIoCARQEAigIBBAQSCAgkAAxV97zIvV5k6qIwAAAABJRU5ErkJggg==";
-            // Menambahkan gambar tanda tangan (x, y, width, height)
-            doc.addImage(signBase64, 'PNG', col1X - 35, rudiY - 35, 70, 35); 
 
             // Nama RUDI 
             doc.setFont("helvetica", "bold");
             doc.text("RUDI", col1X, rudiY, { align: "center" });
             doc.setFont("helvetica", "normal");
 
-            // Garis Tanda Tangan
-            doc.setLineWidth(1);
             doc.line(col2X - 55, rudiY + 4, col2X + 55, rudiY + 4); // Disetujui oleh
             doc.line(col3X - 55, rudiY + 4, col3X + 55, rudiY + 4); // Pickup by
             
@@ -220,7 +212,7 @@ function printNotaPDF(t) {
             doc.line(40, 800, 555, 800); 
 
             // --- FOOTER TEKS BARU ---
-            doc.setFontSize(8);
+            doc.setFontSize(7);
             doc.setFont("helvetica", "italic");
             doc.text("Nota Permintaan Material - Acero Cetha Metalindo", 40, 815);
 
