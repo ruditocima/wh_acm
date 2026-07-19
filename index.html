@@ -119,84 +119,86 @@
         }
 function printNotaPDF(t) {
     const { jsPDF } = window.jspdf;
-    const doc = new jsPDF('p', 'pt', 'a4'); // Kertas A4
+    const doc = new jsPDF('p', 'pt', 'a4'); 
     
-    // Ambil data terkait (cari nama gudang/proyek dari kodenya)
+    // Ambil data terkait
     let gdgAsal = db.gudang.find(g => g['Kode Gudang'] === t['Gudang Asal'])?.['Nama Gudang'] || '-';
     let gdgTujuan = db.gudang.find(g => g['Kode Gudang'] === t['Gudang Tujuan'])?.['Nama Gudang'] || '-';
     let nmProyek = db.project.find(p => p['Kode Project'] === t['Kode Project'])?.['Nama Project'] || '-';
 
-    // --- BAGIAN HEADER ---
-    doc.setFontSize(14); // Req 5: Font diperkecil (sebelumnya 16)
-    doc.setFont("helvetica", "bold");
+    // --- HEADER (Req 1, 2, 5) ---
+    doc.setFont("helvetica", "normal"); // Font Normal
+    
+    doc.setFontSize(12); // Ukuran 12
     doc.text("NOTA PERMINTAAN MATERIAL", 40, 60);
     
-    // Req 6: Menambahkan nama PT dengan font yang sama persis di bawahnya
+    doc.setFontSize(10); // Ukuran 10
     doc.text("PT Acero Cetha Metalindo", 40, 75); 
 
-    doc.setFontSize(9); // Req 5: Font teks umum diperkecil (sebelumnya 10)
-    doc.setFont("helvetica", "normal");
-    doc.text(`No. Doc : ${t['No Doc'] || '-'}`, 40, 100);
-    
-    // Req 2: Menambahkan ID (Auto) tepat di bawah No. Doc
-    doc.text(`ID (Auto) : ${t['ID (Auto)'] || '-'}`, 40, 112); 
-    
-    doc.text(`Tanggal : ${t['Tanggal'] || '-'}`, 400, 100);
+    // Metadata (Req 3, 4, 5)
+    doc.setFontSize(8); // Ukuran 8
+    doc.text(`No. Doc : ${t['No Doc'] || '-'}`, 40, 95);
+    doc.text(`ID (Auto) : ${t['ID (Auto)'] || '-'}`, 40, 105);
+    doc.text(`Tanggal : ${t['Tanggal'] || '-'}`, 400, 95);
 
-    // --- BAGIAN TABEL ---
-    // Req 1 & Req 3: Menghapus SAT dan menambahkan KETERANGAN
+    // --- TABEL (Req 6) ---
+    // Siapkan data baris, tambah baris kosong sampai total 6
+    let bodyData = [
+        [
+            t['Kode Barang'] || '-',
+            t['Nama Barang (Auto)'] || '-',
+            t['Jumlah'] || '0',
+            gdgAsal,
+            gdgTujuan,
+            nmProyek,
+            t['Keterangan'] || '-'
+        ]
+    ];
+    
+    // Loop untuk menambah baris kosong sampai berjumlah 6
+    while (bodyData.length < 6) {
+        bodyData.push(['', '', '', '', '', '', '']);
+    }
+
     doc.autoTable({
-        startY: 125, // Posisi diturunkan sedikit karena header bertambah
+        startY: 120,
         head: [['ID', 'NAMA MATERIAL', 'QTY', 'DARI', 'TUJUAN', 'NAMA PROYEK', 'KETERANGAN']],
-        body: [
-            [
-                t['Kode Barang'] || '-',
-                t['Nama Barang (Auto)'] || '-',
-                t['Jumlah'] || '0',
-                gdgAsal,
-                gdgTujuan,
-                nmProyek,
-                t['Keterangan'] || '-' // Mengambil data keterangan dari database
-            ]
-        ],
+        body: bodyData,
         theme: 'grid',
         headStyles: { 
-            fillColor: [220, 220, 220], 
+            fillColor: [240, 240, 240], 
             textColor: [0, 0, 0],
             fontStyle: 'bold',
-            halign: 'center'
+            halign: 'center',
+            fontSize: 8 // Font header tabel
         },
         bodyStyles: {
             halign: 'center',
-            valign: 'middle'
+            valign: 'middle',
+            fontSize: 8 // Font isi tabel
         },
         columnStyles: {
             1: { halign: 'left' } 
-        },
-        styles: { fontSize: 8 } // Req 5: Font tabel diperkecil (sebelumnya 9)
+        }
     });
 
-    // --- BAGIAN TANDA TANGAN ---
+    // --- TANDA TANGAN ---
     let finalY = doc.lastAutoTable.finalY + 40;
-    doc.setFontSize(9); 
+    doc.setFontSize(8); 
 
-    // 1. KIRI: Pickup by dan garis bawah
+    // Pickup by
     doc.text("Pickup by,", 40, finalY);
-    let namaPetugas = t['Petugas'] || '                                 '; 
-    doc.text(namaPetugas, 40, finalY + 50);
-    doc.line(40, finalY + 52, 140, finalY + 52); 
+    doc.line(40, finalY + 40, 140, finalY + 40); 
 
-    // 2. TENGAH: Disetujui oleh (Req 4)
-    // Diletakkan di koordinat X=230 agar posisinya tepat di tengah
+    // Disetujui oleh (Tengah)
     doc.text("Disetujui oleh,", 230, finalY);
-    // Garis kosong ditarik sejajar (Y+52) dengan posisi tulisan RUDI
-    doc.line(230, finalY + 52, 330, finalY + 52); 
+    doc.line(230, finalY + 40, 330, finalY + 40); 
 
-    // 3. KANAN: Diketahui oleh dan RUDI
+    // Diketahui oleh (Kanan)
     doc.text("Diketahui oleh,", 420, finalY);
-    doc.text("RUDI", 420, finalY + 50);
+    doc.text("RUDI", 420, finalY + 38);
+    doc.line(420, finalY + 40, 520, finalY + 40);
 
-    // Output ke browser
     doc.save(`NOTA_${t['No Doc']}.pdf`);
 }
         function exportCSV() {
