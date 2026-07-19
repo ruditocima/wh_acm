@@ -554,15 +554,9 @@
             syncToFirebase(); // <--- TAMBAHKAN INI UNTUK KIRIM KE FIREBASE
             syncToGoogleSheet(newItem, currentSection);
             closeModal();
-            
-            // ...
-
-            if (currentSection === 'transaksi') {
-                renderDashboard();
-            } else {
-                renderDashboard();
-            }
-        }
+           renderDashboard(); // Render ulang tampilan tabel/dashboard
+        } 
+           
 // Fungsi untuk sinkronisasi ke Firebase
 function syncToFirebase() {
     const dbRef = fbRef(fbDb, 'data_aplikasi');
