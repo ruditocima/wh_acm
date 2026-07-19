@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Aplikasi Pergudangan ACM Final</title>
+    <title>Warehouse Management</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
@@ -119,14 +119,14 @@
         }
 function printNotaPDF(t) {
             const { jsPDF } = window.jspdf;
-            const doc = new jsPDF('p', 'pt', 'a4'); // Kertas A4
+            const doc = new jsPDF('p', 'pt', 'a4'); // Kertas A4 (Lebar: 595.28pt, Tinggi: 841.89pt)
             
             // Ambil data terkait (cari nama gudang/proyek dari kodenya)
             let gdgAsal = db.gudang.find(g => g['Kode Gudang'] === t['Gudang Asal'])?.['Nama Gudang'] || '-';
             let gdgTujuan = db.gudang.find(g => g['Kode Gudang'] === t['Gudang Tujuan'])?.['Nama Gudang'] || '-';
             let nmProyek = db.project.find(p => p['Kode Project'] === t['Kode Project'])?.['Nama Project'] || '-';
 
-            // Menggambar Header Teks
+            // --- 1. MENGGAMBAR HEADER TEKS ---
             doc.setFontSize(16);
             doc.setFont("helvetica", "bold");
             doc.text("NOTA PERMINTAAN MATERIAL", 40, 60);
@@ -136,7 +136,7 @@ function printNotaPDF(t) {
             doc.text(`No. Doc : ${t['No Doc'] || '-'}`, 40, 85);
             doc.text(`Tanggal : ${t['Tanggal'] || '-'}`, 400, 85);
 
-            // Membuat Tabel Data seperti format Excel
+            // --- 2. MEMBUAT TABEL DATA ---
             doc.autoTable({
                 startY: 110,
                 head: [['ID', 'NAMA MATERIAL', 'SAT', 'QTY', 'DARI', 'TUJUAN', 'NAMA PROYEK']],
@@ -144,7 +144,7 @@ function printNotaPDF(t) {
                     [
                         t['Kode Barang'] || '-',
                         t['Nama Barang (Auto)'] || '-',
-                        '-', // Satuan (jika tidak ada di database saat ini, set dash atau ubah sesuai field)
+                        '-', 
                         t['Jumlah'] || '0',
                         gdgAsal,
                         gdgTujuan,
@@ -153,7 +153,7 @@ function printNotaPDF(t) {
                 ],
                 theme: 'grid',
                 headStyles: { 
-                    fillColor: [220, 220, 220], // Warna abu-abu header tabel excel
+                    fillColor: [220, 220, 220], 
                     textColor: [0, 0, 0],
                     fontStyle: 'bold',
                     halign: 'center'
@@ -163,35 +163,60 @@ function printNotaPDF(t) {
                     valign: 'middle'
                 },
                 columnStyles: {
-                    1: { halign: 'left' } // Nama material rata kiri
+                    1: { halign: 'left' } 
                 },
                 styles: { fontSize: 9 }
             });
 
-            // Bagian Bawah: Pickup By
-            let finalY = doc.lastAutoTable.finalY + 40;
+            // --- 3. BAGIAN TANDA TANGAN ---
+            let finalY = doc.lastAutoTable.finalY + 50; // Jarak dari tabel ke judul TTD
             doc.setFontSize(10);
-            doc.text("Pickup by:", 40, finalY);
-            doc.text(`- ${t['Petugas'] || '.........................'}`, 40, finalY + 20);
-            doc.text("- .........................", 40, finalY + 40);
-            doc.text("- .........................", 40, finalY + 60);
 
-            // Output ke browser
+            // Menentukan titik koordinat X tengah untuk masing-masing kolom (3 Kolom Sejajar)
+            let col1X = 120; // Kolom Diketahui oleh
+            let col2X = 300; // Kolom Disetujui oleh
+            let col3X = 480; // Kolom Pickup by
+
+            // Menulis Judul TTD
+            doc.setFont("helvetica", "normal");
+            doc.text("Diketahui oleh,", col1X, finalY, { align: "center" });
+            doc.text("Disetujui oleh,", col2X, finalY, { align: "center" });
+            doc.text("Pickup by,", col3X, finalY, { align: "center" });
+
+            // Menentukan posisi Y dasar yang sejajar untuk RUDI dan garis tanda tangan lainnya
+            let rudiY = finalY + 60; 
+
+            // Kolom 1: Nama RUDI (Tercetak Tebal)
+            doc.setFont("helvetica", "bold");
+            doc.text("RUDI", col1X, rudiY, { align: "center" });
+            doc.setFont("helvetica", "normal");
+
+            // Mengatur ketebalan garis tanda tangan
+            doc.setLineWidth(1);
+
+            // Kolom 2: Garis di bawah "Disetujui oleh" (Sejajar dengan posisi RUDI)
+            doc.line(col2X - 60, rudiY + 4, col2X + 60, rudiY + 4);
+
+            // Kolom 3: Garis di bawah "Pickup by" (Sejajar dengan posisi RUDI)
+            doc.line(col3X - 60, rudiY + 4, col3X + 60, rudiY + 4);
+            
+            // Menampilkan nama petugas pengambil secara otomatis tepat di atas garis (jika ada)
+            let petugas = t['Petugas'] ? t['Petugas'].toUpperCase() : "";
+            if (petugas) {
+                doc.setFontSize(9);
+                doc.text(petugas, col3X, rudiY - 2, { align: "center" });
+            }
+
+            // --- 4. GARIS PALING BAWAH HALAMAN (FOOTER LINE) ---
+            doc.setLineWidth(1);
+            doc.line(40, 800, 555, 800); 
+
+            doc.setFontSize(8);
+            doc.setFont("helvetica", "italic");
+            doc.text("Form Permintaan Material - Acero Cetha Metalindo", 40, 815);
+
+            // --- 5. PROSES DOWNLOAD PDF ---
             doc.save(`NOTA_${t['No Doc']}.pdf`);
-        }
-        function exportCSV() {
-            let data = db[currentSection];
-            if (data.length === 0) return alert("Tidak ada data untuk diexport!");
-            let csv = Object.keys(data[0]).join(',') + '\n';
-            data.forEach(row => {
-                csv += Object.values(row).map(val => `"${val}"`).join(',') + '\n';
-            });
-            let blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-            let url = URL.createObjectURL(blob);
-            let a = document.createElement('a');
-            a.href = url;
-            a.download = currentSection + '.csv';
-            a.click();
         }
 function exportRekapStokCSV() {
     const selectedGudang = document.getElementById('gudang-filter')?.value || "";
