@@ -151,12 +151,21 @@
     if (section === 'transaksi') {
         db[section].sort((a, b) => new Date(b['Tanggal'] || 0) - new Date(a['Tanggal'] || 0));
     } else if (section === 'barang') {
-        // PERMINTAAN 1: Mengurutkan Ascending berdasarkan Kategori
+       // Mengurutkan Ascending berdasarkan Kategori, lalu Jenis
         db[section].sort((a, b) => {
             let catA = (a['Kategori'] || "").toLowerCase();
             let catB = (b['Kategori'] || "").toLowerCase();
+            let jenisA = (a['Jenis'] || "").toLowerCase();
+            let jenisB = (b['Jenis'] || "").toLowerCase();
+
+            // Urutkan Kategori terlebih dahulu
             if (catA < catB) return -1;
             if (catA > catB) return 1;
+            
+            // Jika Kategori sama, urutkan berdasarkan Jenis
+            if (jenisA < jenisB) return -1;
+            if (jenisA > jenisB) return 1;
+            
             return 0;
         });
     }
