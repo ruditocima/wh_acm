@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Aplikasi Pergudangan ACM Final</title>
+    <title>WMS ACM</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         /* Memperkecil padding tabel agar lebar kolom proporsional menyesuaikan huruf 9pt */
@@ -45,10 +45,12 @@
 </script>
 <body class="bg-gray-50 min-h-screen">
     <div class="max-w-7xl mx-auto p-4 md:p-8">
-        <header class="bg-indigo-900 text-white p-6 rounded-t-xl shadow-lg flex justify-between items-center">
-            <h1 class="text-2xl font-bold">Warehouse Management System</h1>
-            <button onclick="renderDashboard()" class="bg-indigo-700 hover:bg-indigo-600 px-4 py-2 rounded text-[9pt] transition">Dashboard</button>
-        </header>
+        <!-- PERUBAHAN: Mengganti p-6 menjadi h-20 px-6 serta menambah sticky top-0 z-30 -->
+<header class="bg-indigo-900 text-white h-20 px-6 rounded-t-xl shadow-lg flex justify-between items-center sticky top-0 z-30">
+    <!-- Ukuran teks disesuaikan (text-lg md:text-2xl) agar tidak patah menjadi 2 baris di HP -->
+    <h1 class="text-lg md:text-2xl font-bold">Warehouse Management System</h1>
+    <button onclick="renderDashboard()" class="bg-indigo-700 hover:bg-indigo-600 px-4 py-2 rounded text-[9pt] transition">Dashboard</button>
+</header>
 
         <main id="main-content" class="bg-white p-6 rounded-b-xl shadow-md min-h-[500px]">
         </main>
@@ -208,12 +210,15 @@ function exportRekapStokCSV() {
         });
     }
     
+    function renderTable(section) {
+    // ... (kode pengurutan data/sort tetap sama seperti sebelumnya) ...
+    
     let data = db[section];
     let exportBtn = (section === 'transaksi' || section === 'barang') ? `<button onclick="exportCSV()" class="bg-green-600 text-white px-4 py-2 rounded shadow hover:bg-green-500 mr-2 text-[9pt]">Export CSV</button>` : '';
     
-    // PERUBAHAN: Menambahkan 'sticky top-0 bg-white z-10 pt-2 pb-4 border-b' agar judul & tombol tidak bergeser
+    // PERUBAHAN: top-0 diubah menjadi top-[80px] dan z-10 menjadi z-20
     let html = `
-        <div class="sticky top-0 bg-white z-10 flex justify-between items-center pt-2 pb-4 mb-6 border-b border-gray-200">
+        <div class="sticky top-[80px] bg-white z-20 flex justify-between items-center pt-2 pb-4 mb-6 border-b border-gray-200">
             <h2 class="text-[9pt] font-bold capitalize text-gray-800">${section.replace('_', ' ')}</h2>
             <div>
                 ${exportBtn}
@@ -223,7 +228,8 @@ function exportRekapStokCSV() {
         <div class="overflow-x-auto">
             <table class="w-full text-left border-collapse border border-gray-200 table-compact">
                 <thead class="bg-gray-50"><tr>`;
-    
+                
+    // ... (sisa kode fungsi renderTable di bawahnya tetap sama) ...    
     if (data.length > 0) {
         Object.keys(data[0]).forEach(k => html += `<th class="border text-[9pt] font-bold uppercase text-gray-600">${k}</th>`);
         html += `<th class="border text-[9pt] font-bold uppercase text-gray-600">Aksi</th></tr></thead><tbody>`;
@@ -345,25 +351,28 @@ function exportRekapStokCSV() {
         }
     });
 
-    let options = db.gudang.map(g => `<option value="${g['Kode Gudang']}" ${selectedGudang === g['Kode Gudang'] ? 'selected' : ''}>${g['Nama Gudang']}</option>`).join('');
+    function renderRekapStokProyek() {
+    // ... (kode perhitungan rekap proyek tetap sama) ...
+
+    let options = db.project.map(p => `<option value="${p['Kode Project']}" ${selectedProject === p['Kode Project'] ? 'selected' : ''}>${p['Nama Project']}</option>`).join('');
     
-    // PERUBAHAN: Menambahkan 'sticky top-0 bg-white z-10 pt-2 pb-4 border-b' pada bagian filter rekap stok
+    // PERUBAHAN: top-0 diubah menjadi top-[80px] dan z-10 menjadi z-20
     let html = `
-        <div class="sticky top-0 bg-white z-10 flex justify-between items-end pt-2 pb-4 mb-6 border-b border-gray-200">
+        <div class="sticky top-[80px] bg-white z-20 mb-6 pt-2 pb-4 border-b border-gray-200">
+            <h2 class="text-[9pt] font-bold mb-4">Rekap Stok Proyek</h2>
             <div class="w-full md:w-1/3">
-                <h2 class="text-[9pt] font-bold mb-4">Rekap Stok Gudang</h2>
-                <label class="block text-[9pt] font-medium text-gray-700 mb-1">Pilih Gudang:</label>
-                <select id="gudang-filter" onchange="renderRekapStok()" class="w-full border p-2 rounded text-[9pt]">
-                    <option value="">-- Semua Gudang --</option>
+                <label class="block text-[9pt] font-medium text-gray-700 mb-1">Pilih Proyek:</label>
+                <select id="project-filter" onchange="renderRekapStokProyek()" class="w-full border p-2 rounded text-[9pt]">
+                    <option value="">-- Semua Proyek --</option>
                     ${options}
                 </select>
-            </div>
-            <div>
-                <button onclick="exportRekapStokCSV()" class="bg-green-600 text-white px-4 py-2 rounded shadow hover:bg-green-500 text-[9pt]">Export CSV</button>
             </div>
         </div>
         <div class="overflow-x-auto">
             <table class="w-full text-left border-collapse border border-gray-200 table-compact">
+    `;
+    
+    // ... (sisa kode fungsi renderRekapStokProyek di bawahnya tetap sama) ...
                 <thead class="bg-gray-50">
                     <tr>
                         <th class="border text-[9pt] font-bold uppercase text-gray-600">Nama Barang</th>
