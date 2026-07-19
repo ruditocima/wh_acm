@@ -12,31 +12,32 @@
 </head>
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
-  import { getDatabase } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-database.js";
-// Tambahkan ini:
-import { ref, set, get, child, remove } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-database.js";
+  import { getDatabase, ref, set, get, child, remove } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-database.js";
 
-  // Tempelkan kode konfigurasi yang Anda salin di Tahap 2 di sini
   const firebaseConfig = {
-  apiKey: "AIzaSyChPNI9RPXneZfjg0YyNCTlVDfSiEVdrKs",
-  authDomain: "wms-acm.firebaseapp.com",
-  projectId: "wms-acm",
-  storageBucket: "wms-acm.firebasestorage.app",
-  messagingSenderId: "427966771954",
-  appId: "1:427966771954:web:e1cbec9d2dfc4684a4166b",
-  databaseURL: "https://wms-acm-default-rtdb.asia-southeast1.firebasedatabase.app"
-};
+    apiKey: "AIzaSyChPNI9RPXneZfjg0YyNCTlVDfSiEVdrKs",
+    authDomain: "wms-acm.firebaseapp.com",
+    projectId: "wms-acm",
+    storageBucket: "wms-acm.firebasestorage.app",
+    messagingSenderId: "427966771954",
+    appId: "1:427966771954:web:e1cbec9d2dfc4684a4166b",
+    databaseURL: "https://wms-acm-default-rtdb.asia-southeast1.firebasedatabase.app"
+  };
 
   const app = initializeApp(firebaseConfig);
-  const db = getDatabase(app);
   
-  window.fbDb = db;
+  // Ekspor fungsi Firebase ke global (window) agar bisa dipakai skrip di bawahnya
+  window.fbDb = getDatabase(app);
   window.fbRef = ref;
   window.fbSet = set;
   window.fbGet = get;
   window.fbChild = child;
   window.fbRemove = remove;
 
+  // Beri tahu skrip utama bahwa Firebase sudah siap dieksekusi
+  if (typeof window.initApp === 'function') {
+      window.initApp();
+  }
 </script>
 <body class="bg-gray-50 min-h-screen">
     <div class="max-w-7xl mx-auto p-4 md:p-8">
