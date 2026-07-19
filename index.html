@@ -554,6 +554,7 @@
             syncToFirebase(); // <--- TAMBAHKAN INI UNTUK KIRIM KE FIREBASE
             syncToGoogleSheet(newItem, currentSection);
             closeModal();
+            renderDashboard();
             // ...
 
             if (currentSection === 'transaksi') {
