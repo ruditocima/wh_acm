@@ -544,191 +544,193 @@ function exportRekapStokCSV() {
         }
 
         function openModal(index) {
-            editIndex = index;
-            document.getElementById('btn-save').classList.remove('hidden');
-            let btnPdf = document.getElementById('btn-print-pdf');
-            if(!btnPdf) {
-                // Buat elemen tombol jika belum ada
-                btnPdf = document.createElement('button');
-                btnPdf.id = 'btn-print-pdf';
-                btnPdf.className = "px-4 py-2 bg-red-600 text-white rounded hover:bg-red-500 text-[9pt] hidden";
-                btnPdf.innerText = "Print PDF";
-                // Insert sebelum tombol Tutup/Simpan
-                document.getElementById('btn-save').parentNode.insertBefore(btnPdf, document.getElementById('btn-save'));
-            }
-            
-            if (currentSection === 'transaksi' && index !== -1) {
-                btnPdf.classList.remove('hidden');
-                btnPdf.onclick = function() { printNotaPDF(db.transaksi[index]); };
-            } else {
-                btnPdf.classList.add('hidden');
-            }
+    editIndex = index;
+    document.getElementById('btn-save').classList.remove('hidden');
+    let btnPdf = document.getElementById('btn-print-pdf');
+    if(!btnPdf) {
+        // Buat elemen tombol jika belum ada
+        btnPdf = document.createElement('button');
+        btnPdf.id = 'btn-print-pdf';
+        btnPdf.className = "px-4 py-2 bg-red-600 text-white rounded hover:bg-red-500 text-[9pt] hidden";
+        btnPdf.innerText = "Print PDF";
+        // Insert sebelum tombol Tutup/Simpan
+        document.getElementById('btn-save').parentNode.insertBefore(btnPdf, document.getElementById('btn-save'));
+    }
+    
+    if (currentSection === 'transaksi' && index !== -1) {
+        btnPdf.classList.remove('hidden');
+        btnPdf.onclick = function() { printNotaPDF(db.transaksi[index]); };
+    } else {
+        btnPdf.classList.add('hidden');
+    }
 
-            const form = document.getElementById('data-form');
-                      
-            if (currentSection === 'transaksi') {
-                form.className = "grid grid-cols-3 gap-4 text-[9pt]";
-            } else {
-                form.className = "grid grid-cols-2 gap-4 text-[9pt]";
-            }
-            
-            form.innerHTML = '';
-            
-            let keys = [];
-            if (currentSection === 'barang') {
-                // Posisi kolom di Input Modal diurutkan sesuai Permintaan 2
-                keys = ['Kategori', 'Jenis', 'Kode Barang', 'Nama Barang'];
-            } else if (currentSection === 'transaksi') {
-                keys = ['ID (Auto)', 'Tanggal', 'No Doc', 'Tipe Transaksi', 'Gudang Asal', 'Gudang Tujuan', 'Kode Project', 'Kategori', 'Jenis', 'Kode Barang', 'Nama Barang (Auto)', 'Jumlah', 'Petugas', 'Keterangan'];
-            } else {
-                keys = db[currentSection].length > 0 ? Object.keys(db[currentSection][0]) : [];
-            }
+    const form = document.getElementById('data-form');
+              
+    if (currentSection === 'transaksi') {
+        form.className = "grid grid-cols-3 gap-4 text-[9pt]";
+    } else {
+        form.className = "grid grid-cols-2 gap-4 text-[9pt]";
+    }
+    
+    form.innerHTML = '';
+    
+    let keys = [];
+    if (currentSection === 'barang') {
+        // Posisi kolom di Input Modal diurutkan sesuai Permintaan 2
+        keys = ['Kategori', 'Jenis', 'Kode Barang', 'Nama Barang'];
+    } else if (currentSection === 'transaksi') {
+        keys = ['ID (Auto)', 'Tanggal', 'No Doc', 'Tipe Transaksi', 'Gudang Asal', 'Gudang Tujuan', 'Kode Project', 'Kategori', 'Jenis', 'Kode Barang', 'Nama Barang (Auto)', 'Jumlah', 'Petugas', 'Keterangan'];
+    } else {
+        keys = db[currentSection].length > 0 ? Object.keys(db[currentSection][0]) : [];
+    }
 
-            const item = index === -1 ? {} : db[currentSection][index];
-            document.getElementById('modal-title').innerText = index === -1 ? 'Tambah Data' : 'Edit Data';
-            
-            keys.forEach(key => {
-                let inputHtml = '';
-                
-                if (currentSection === 'barang') {
-                    inputHtml = `<input type="text" name="${key}" value="${item[key] || ''}" class="w-full border p-2 rounded text-[9pt]" required>`;
-                } 
-                else if (currentSection === 'transaksi') {
-                    if (key === 'Tanggal') {
-                        inputHtml = `<input type="date" name="${key}" value="${item[key] || new Date().toISOString().split('T')[0]}" onchange="onTanggalChange(this.value)" class="w-full border p-2 rounded text-[9pt]" required>`;
-                    } else if (key === 'No Doc') {
-                        let initialDoc = item[key];
-                        if (index === -1 && !initialDoc) {
-                            initialDoc = generateUniqueDocCode(); 
-                        }
-                        inputHtml = `<input type="text" name="${key}" value="${initialDoc}" class="w-full border p-2 rounded text-[9pt]" required>`;
-                    } else if (key === 'Tipe Transaksi') {
-                        inputHtml = `<select name="${key}" class="w-full border p-2 rounded text-[9pt]">
-                            <option value="Masuk" ${item[key] === 'Masuk' ? 'selected' : ''}>Masuk</option>
-                            <option value="Keluar" ${item[key] === 'Keluar' ? 'selected' : ''}>Keluar</option>
-                            <option value="Transfer" ${item[key] === 'Transfer' ? 'selected' : ''}>Transfer</option>
-                        </select>`;
-                    } else if (key === 'Gudang Asal' || key === 'Gudang Tujuan') {
-                        inputHtml = `<select name="${key}" class="w-full border p-2 rounded text-[9pt]">
-                            <option value="">-- Pilih --</option>
-                            ${db.gudang.map(g => `<option value="${g['Kode Gudang']}" ${item[key] === g['Kode Gudang'] ? 'selected' : ''}>${g['Nama Gudang']}</option>`).join('')}
-                        </select>`;
-                    } else if (key === 'Kode Project') {
-                        inputHtml = `<select name="${key}" class="w-full border p-2 rounded text-[9pt]">
-                            <option value="">-- Pilih --</option>
-                            ${db.project.map(p => `<option value="${p['Kode Project']}" ${item[key] === p['Kode Project'] ? 'selected' : ''}>${p['Kode Project']} - ${p['Nama Project']}</option>`).join('')}
-                        </select>`;
-                    } else if (key === 'Kategori') {
-                        let categories = [...new Set(db.barang.map(b => b['Kategori']))];
-                        inputHtml = `<select name="${key}" onchange="onKategoriChange(this.value)" class="w-full border p-2 rounded text-[9pt]" required>
-                            <option value="">-- Pilih Kategori --</option>
-                            ${categories.map(c => `<option value="${c}" ${item[key] === c ? 'selected' : ''}>${c}</option>`).join('')}
-                        </select>`;
-                    } else if (key === 'Jenis') {
-                        inputHtml = `<select name="${key}" onchange="onJenisChange(this.value)" class="w-full border p-2 rounded text-[9pt]" required>
-                            <option value="">-- Pilih Jenis --</option>
-                        </select>`;
-                    } else if (key === 'Kode Barang') {
-                        inputHtml = `<select name="${key}" onchange="updateNamaBarang(this.value)" class="w-full border p-2 rounded text-[9pt]" required>
-                            <option value="">-- Pilih Barang --</option>
-                        </select>`;
-                    } else if (key === 'Nama Barang (Auto)') {
-                        inputHtml = `<input type="text" name="${key}" value="${item[key] || ''}" readonly class="w-full border p-2 rounded bg-gray-100 cursor-not-allowed text-[9pt]">`;
-                    } else if (key === 'Jumlah') {
-                        inputHtml = `<input type="number" name="${key}" value="${item[key] || 0}" class="w-full border p-2 rounded text-[9pt]" required>`;
-                    } else {
-                        inputHtml = `<input type="text" name="${key}" value="${item[key] || ''}" class="w-full border p-2 rounded text-[9pt]">`;
-                    }
-                } 
-                else {
-                    if (currentSection === 'project' && key === 'Kode Project') {
-                        let initialCode = item[key];
-                        if (index === -1 && !initialCode) {
-                            initialCode = generateProjectCode();
-                        }
-                        inputHtml = `<input type="text" name="${key}" value="${initialCode}" class="w-full border p-2 rounded bg-gray-100 cursor-not-allowed text-[9pt]" readonly required>`;
-                    } else {
-                        inputHtml = `<input type="text" name="${key}" value="${item[key] || ''}" class="w-full border p-2 rounded text-[9pt]" required>`;
-                    }
+    const item = index === -1 ? {} : db[currentSection][index];
+    document.getElementById('modal-title').innerText = index === -1 ? 'Tambah Data' : 'Edit Data';
+    
+    keys.forEach(key => {
+        let inputHtml = '';
+        
+        if (currentSection === 'barang') {
+            inputHtml = `<input type="text" name="${key}" value="${item[key] || ''}" class="w-full border p-2 rounded text-[9pt]" required>`;
+        } 
+        else if (currentSection === 'transaksi') {
+            if (key === 'ID (Auto)') {
+                // PERBAIKAN 2: Generate ID Auto saat menu input dibuka
+                let initialId = item[key];
+                if (index === -1 && !initialId) {
+                    initialId = 'TX-' + Date.now().toString().slice(-5);
                 }
-
-                form.innerHTML += `<div>
-                    <label class="block text-[9pt] font-medium mb-1 text-gray-700">${key}</label>
-                    ${inputHtml}
-                </div>`;
-            });
-            
-            document.getElementById('modal').classList.remove('hidden');
-
-            if (currentSection === 'transaksi' && index !== -1) {
-                if (item['Kategori']) {
-                    onKategoriChange(item['Kategori']);
-                    document.querySelector('select[name="Jenis"]').value = item['Jenis'] || '';
+                inputHtml = `<input type="text" name="${key}" value="${initialId}" readonly class="w-full border p-2 rounded bg-gray-100 cursor-not-allowed text-[9pt]">`;
+            } else if (key === 'Tanggal') {
+                inputHtml = `<input type="date" name="${key}" value="${item[key] || new Date().toISOString().split('T')[0]}" onchange="onTanggalChange(this.value)" class="w-full border p-2 rounded text-[9pt]" required>`;
+            } else if (key === 'No Doc') {
+                let initialDoc = item[key];
+                if (index === -1 && !initialDoc) {
+                    initialDoc = generateUniqueDocCode(); 
                 }
-                if (item['Jenis']) {
-                    onJenisChange(item['Jenis']);
-                    document.querySelector('select[name="Kode Barang"]').value = item['Kode Barang'] || '';
+                inputHtml = `<input type="text" name="${key}" value="${initialDoc}" class="w-full border p-2 rounded text-[9pt]" required>`;
+            } else if (key === 'Tipe Transaksi') {
+                inputHtml = `<select name="${key}" class="w-full border p-2 rounded text-[9pt]">
+                    <option value="Masuk" ${item[key] === 'Masuk' ? 'selected' : ''}>Masuk</option>
+                    <option value="Keluar" ${item[key] === 'Keluar' ? 'selected' : ''}>Keluar</option>
+                    <option value="Transfer" ${item[key] === 'Transfer' ? 'selected' : ''}>Transfer</option>
+                </select>`;
+            } else if (key === 'Gudang Asal' || key === 'Gudang Tujuan') {
+                inputHtml = `<select name="${key}" class="w-full border p-2 rounded text-[9pt]">
+                    <option value="">-- Pilih --</option>
+                    ${db.gudang.map(g => `<option value="${g['Kode Gudang']}" ${item[key] === g['Kode Gudang'] ? 'selected' : ''}>${g['Nama Gudang']}</option>`).join('')}
+                </select>`;
+            } else if (key === 'Kode Project') {
+                inputHtml = `<select name="${key}" class="w-full border p-2 rounded text-[9pt]">
+                    <option value="">-- Pilih --</option>
+                    ${db.project.map(p => `<option value="${p['Kode Project']}" ${item[key] === p['Kode Project'] ? 'selected' : ''}>${p['Kode Project']} - ${p['Nama Project']}</option>`).join('')}
+                </select>`;
+            } else if (key === 'Kategori') {
+                let categories = [...new Set(db.barang.map(b => b['Kategori']))];
+                inputHtml = `<select name="${key}" onchange="onKategoriChange(this.value)" class="w-full border p-2 rounded text-[9pt]" required>
+                    <option value="">-- Pilih Kategori --</option>
+                    ${categories.map(c => `<option value="${c}" ${item[key] === c ? 'selected' : ''}>${c}</option>`).join('')}
+                </select>`;
+            } else if (key === 'Jenis') {
+                inputHtml = `<select name="${key}" onchange="onJenisChange(this.value)" class="w-full border p-2 rounded text-[9pt]" required>
+                    <option value="">-- Pilih Jenis --</option>
+                </select>`;
+            } else if (key === 'Kode Barang') {
+                inputHtml = `<select name="${key}" onchange="updateNamaBarang(this.value)" class="w-full border p-2 rounded text-[9pt]" required>
+                    <option value="">-- Pilih Barang --</option>
+                </select>`;
+            } else if (key === 'Nama Barang (Auto)') {
+                inputHtml = `<input type="text" name="${key}" value="${item[key] || ''}" readonly class="w-full border p-2 rounded bg-gray-100 cursor-not-allowed text-[9pt]">`;
+            } else if (key === 'Jumlah') {
+                inputHtml = `<input type="number" name="${key}" value="${item[key] || 0}" class="w-full border p-2 rounded text-[9pt]" required>`;
+            } else {
+                inputHtml = `<input type="text" name="${key}" value="${item[key] || ''}" class="w-full border p-2 rounded text-[9pt]">`;
+            }
+        } 
+        else {
+            if (currentSection === 'project' && key === 'Kode Project') {
+                let initialCode = item[key];
+                if (index === -1 && !initialCode) {
+                    initialCode = generateProjectCode();
                 }
+                inputHtml = `<input type="text" name="${key}" value="${initialCode}" class="w-full border p-2 rounded bg-gray-100 cursor-not-allowed text-[9pt]" readonly required>`;
+            } else {
+                inputHtml = `<input type="text" name="${key}" value="${item[key] || ''}" class="w-full border p-2 rounded text-[9pt]" required>`;
             }
         }
 
+        form.innerHTML += `<div>
+            <label class="block text-[9pt] font-medium mb-1 text-gray-700">${key}</label>
+            ${inputHtml}
+        </div>`;
+    });
+    
+    document.getElementById('modal').classList.remove('hidden');
+
+    if (currentSection === 'transaksi' && index !== -1) {
+        if (item['Kategori']) {
+            onKategoriChange(item['Kategori']);
+            document.querySelector('select[name="Jenis"]').value = item['Jenis'] || '';
+        }
+        if (item['Jenis']) {
+            onJenisChange(item['Jenis']);
+            document.querySelector('select[name="Kode Barang"]').value = item['Kode Barang'] || '';
+            // PERBAIKAN 3: Panggil ulang update nama barang untuk mencegah nilainya di-clear oleh onJenisChange
+            updateNamaBarang(item['Kode Barang']);
+        }
+    }
+}
         function closeModal() { document.getElementById('modal').classList.add('hidden'); }
 
         function saveData() {
-            const form = document.getElementById('data-form');
-            
-            if(!form.checkValidity()) {
-                form.reportValidity();
-                return;
-            }
+    const form = document.getElementById('data-form');
+    
+    if(!form.checkValidity()) {
+        form.reportValidity();
+        return;
+    }
 
-            const formData = new FormData(form);
-            let newItem = {};
-            for (let [key, value] of formData.entries()) { newItem[key] = value; }
+    const formData = new FormData(form);
+    let newItem = {};
+    for (let [key, value] of formData.entries()) { newItem[key] = value; }
 
-            if(currentSection === 'transaksi') {
-                let docVal = newItem['No Doc'] ? newItem['No Doc'].trim() : '';
-                if(!docVal) {
-                    newItem['No Doc'] = generateUniqueDocCode();
-                } else {
-                    // PERMINTAAN 5: Penambahan (X00) berurutan jika duplikat
-                    let baseDoc = docVal;
-                    let isDuplicate = db.transaksi.some((t, idx) => t['No Doc'] === baseDoc && idx !== editIndex);
-                    
-                    if(isDuplicate) {
-                        let counter = 1;
-                        let newDoc = "";
-                        let stillDuplicate = true;
-                        
-                        while(stillDuplicate) {
-                            // Format: (X01), (X02), dst.
-                            let suffix = `(X${counter.toString().padStart(2, '0')})`; 
-                            newDoc = `${baseDoc} ${suffix}`;
-                            stillDuplicate = db.transaksi.some((t, idx) => t['No Doc'] === newDoc && idx !== editIndex);
-                            counter++;
-                        }
-                        newItem['No Doc'] = newDoc;
-                        alert(`No Doc sudah digunakan! Sistem otomatis mengubahnya menjadi: ${newDoc}`);
-                    }
-                }
-            }
+    if(currentSection === 'transaksi') {
+        let docVal = newItem['No Doc'] ? newItem['No Doc'].trim() : '';
+        if(!docVal) {
+            newItem['No Doc'] = generateUniqueDocCode();
+        } else {
+            // PERBAIKAN 1: Hapus penambahan suffix, biarkan duplikat apa adanya
+            newItem['No Doc'] = docVal; 
+        }
+    }
 
-           // ... (di dalam fungsi saveData)
-            if (editIndex === -1) {
-                if(currentSection === 'transaksi' && !newItem['ID (Auto)']) {
-                newItem['ID (Auto)'] = 'TX-' + Date.now().toString().slice(-5);
-                }
-                db[currentSection].push(newItem);
-            } else {
-                db[currentSection][editIndex] = newItem;
-            }
+    let isNewInput = (editIndex === -1);
 
-            saveToLocal(); // Tetap simpan lokal jika perlu (opsional)
-            syncToFirebase(); // <--- TAMBAHKAN INI UNTUK KIRIM KE FIREBASE
+    if (isNewInput) {
+        // ID Auto sekarang sudah dibuat di form (openModal), tidak perlu di-generate di sini lagi
+        db[currentSection].push(newItem);
+    } else {
+        db[currentSection][editIndex] = newItem;
+    }
+
+    saveToLocal();
+    syncToFirebase();
+    
+    // PERBAIKAN 4: Tambah pop-up pilihan untuk melanjutkan ke input baru atau kembali ke Dashboard
+    if (isNewInput) {
+        let lanjut = confirm("Data berhasil disimpan! Apakah Anda ingin lanjut Input Baru?");
+        if (lanjut) {
+            openModal(-1); // Modal tetap terbuka & mereset form kosong
+        } else {
             closeModal();
-            renderDashboard(); // Render ulang tampilan tabel/dashboard
-        } 
-           
+            renderDashboard(); // Tutup modal & kembali ke Dashboard utama
+        }
+    } else {
+        // Jika mode edit, setelah save langsung tutup form
+        closeModal();
+        renderDashboard();
+    }
+}           
 // Fungsi untuk sinkronisasi ke Firebase
 function syncToFirebase() {
     const dbRef = fbRef(fbDb, 'data_aplikasi');
