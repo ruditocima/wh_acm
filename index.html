@@ -80,8 +80,8 @@
             ],
             "transaksi": [
                 {
-                    "Doc TO/DO": "TX-001", 
                     "Tanggal": "2026-07-16", 
+                    "Doc TO/DO": "TX-001", 
                     "No Doc": "ACM-NPM-VII-2026-001", 
                     "Tipe Transaksi": "Masuk", 
                     "Gudang Asal": "", 
@@ -302,7 +302,7 @@
             } else {
                 let defaultKeys = [];
                 if(section === 'barang') defaultKeys = ["Kategori", "Jenis", "Kode Barang", "Nama Barang"];
-                else if(section === 'transaksi') defaultKeys = ["Doc TO/DO", "Tanggal", "No Doc", "Tipe Transaksi", "Gudang Asal", "Gudang Tujuan", "Kode Project", "Kategori", "Jenis", "Kode Barang", "Nama Barang (Auto)", "Jumlah", "Petugas", "Keterangan"];
+                else if(section === 'transaksi') defaultKeys = ["Tanggal", "Doc TO/DO", "No Doc", "Tipe Transaksi", "Gudang Asal", "Gudang Tujuan", "Kode Project", "Kategori", "Jenis", "Kode Barang", "Nama Barang (Auto)", "Jumlah", "Petugas", "Keterangan"];
                 else if(section === 'gudang') defaultKeys = ["Kode Gudang", "Nama Gudang"];
                 else if(section === 'project') defaultKeys = ["Kode Project", "Nama Project"];
 
@@ -753,8 +753,8 @@
                 let newItems = [];
                 for(let i = 0; i < kats.length; i++){
                     newItems.push({
-                        "Doc TO/DO": docToDo,
                         "Tanggal": tgl,
+                        "Doc TO/DO": docToDo,
                         "No Doc": docVal,
                         "Tipe Transaksi": tipe,
                         "Gudang Asal": asal,
