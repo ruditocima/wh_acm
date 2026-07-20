@@ -793,12 +793,14 @@
                 // Kita ambil transaksi terakhir yang memiliki No Doc yang sama
                 let lastItem = db.transaksi[db.transaksi.length - 1];
                 btnPdf.onclick = function() { printNotaPDF(lastItem); };
-                
+                closeModal();
+            };
                 alert("Data berhasil disimpan! Anda sekarang dapat mencetak Nota.");
             } else {
                 closeModal();
                 renderDashboard();
-            }          
+            }
+        }           
         
         function syncToFirebase() {
             const dbRef = fbRef(fbDb, 'data_aplikasi');
