@@ -126,22 +126,22 @@ function printNotaPDF(t) {
     let gdgTujuan = db.gudang.find(g => g['Kode Gudang'] === t['Gudang Tujuan'])?.['Nama Gudang'] || '-';
     let nmProyek = db.project.find(p => p['Kode Project'] === t['Kode Project'])?.['Nama Project'] || '-';
 
-    // --- HEADER (Req 1, 2, 5) ---
-    doc.setFont("helvetica", "normal"); // Font Normal
+    // --- HEADER ---
+    doc.setFont("helvetica", "normal"); 
     
-    doc.setFontSize(12); // Ukuran 12
+    doc.setFontSize(12); 
     doc.text("NOTA PERMINTAAN MATERIAL", 40, 60);
     
-    doc.setFontSize(10); // Ukuran 10
+    doc.setFontSize(10); 
     doc.text("PT Acero Cetha Metalindo", 40, 75); 
 
-    // Metadata (Req 3, 4, 5)
-    doc.setFontSize(8); // Ukuran 8
+    // Metadata 
+    doc.setFontSize(8); 
     doc.text(`No. Doc : ${t['No Doc'] || '-'}`, 40, 95);
     doc.text(`ID (Auto) : ${t['ID (Auto)'] || '-'}`, 40, 105);
     doc.text(`Tanggal : ${t['Tanggal'] || '-'}`, 400, 95);
 
-    // --- TABEL (Req 6) ---
+    // --- TABEL ---
     // Siapkan data baris, tambah baris kosong sampai total 6
     let bodyData = [
         [
@@ -170,12 +170,12 @@ function printNotaPDF(t) {
             textColor: [0, 0, 0],
             fontStyle: 'bold',
             halign: 'center',
-            fontSize: 8 // Font header tabel
+            fontSize: 8 
         },
         bodyStyles: {
             halign: 'center',
             valign: 'middle',
-            fontSize: 8 // Font isi tabel
+            fontSize: 8 
         },
         columnStyles: {
             1: { halign: 'left' } 
@@ -186,8 +186,14 @@ function printNotaPDF(t) {
     let finalY = doc.lastAutoTable.finalY + 40;
     doc.setFontSize(8); 
 
-    // Pickup by
+    // Pickup by (Kiri)
     doc.text("Pickup by,", 40, finalY);
+    // Menampilkan Nama Petugas (jika ada) sejajar dengan RUDI di koordinat Y + 38
+    let namaPetugas = t['Petugas'] || '';
+    if (namaPetugas) {
+        // Dicetak uppercase (huruf kapital) agar seragam dengan gaya penulisan nama RUDI
+        doc.text(namaPetugas.toUpperCase(), 40, finalY + 38); 
+    }
     doc.line(40, finalY + 40, 140, finalY + 40); 
 
     // Disetujui oleh (Tengah)
@@ -200,8 +206,7 @@ function printNotaPDF(t) {
     doc.line(420, finalY + 40, 520, finalY + 40);
 
     doc.save(`NOTA_${t['No Doc']}.pdf`);
-}
-        function exportCSV() {
+}        function exportCSV() {
             let data = db[currentSection];
             if (data.length === 0) return alert("Tidak ada data untuk diexport!");
             let csv = Object.keys(data[0]).join(',') + '\n';
