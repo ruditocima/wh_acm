@@ -80,8 +80,8 @@
             ],
             "transaksi": [
                 {
-                    "ID (Auto)": "TX-001", 
                     "Tanggal": "2026-07-16", 
+                    "ID DO-TO": "TX-001", 
                     "No Doc": "ACM-NPM-VII-2026-001", 
                     "Tipe Transaksi": "Masuk", 
                     "Gudang Asal": "", 
@@ -302,7 +302,7 @@
             } else {
                 let defaultKeys = [];
                 if(section === 'barang') defaultKeys = ["Kategori", "Jenis", "Kode Barang", "Nama Barang"];
-                else if(section === 'transaksi') defaultKeys = ["ID (Auto)", "Tanggal", "No Doc", "Tipe Transaksi", "Gudang Asal", "Gudang Tujuan", "Kode Project", "Kategori", "Jenis", "Kode Barang", "Nama Barang (Auto)", "Jumlah", "Petugas", "Keterangan"];
+                else if(section === 'transaksi') defaultKeys = ["Tanggal", "ID DO-TO", "No Doc", "Tipe Transaksi", "Gudang Asal", "Gudang Tujuan", "Kode Project", "Kategori", "Jenis", "Kode Barang", "Nama Barang (Auto)", "Jumlah", "Petugas", "Keterangan"];
                 else if(section === 'gudang') defaultKeys = ["Kode Gudang", "Nama Gudang"];
                 else if(section === 'project') defaultKeys = ["Kode Project", "Nama Project"];
 
@@ -460,7 +460,7 @@
             db.transaksi.forEach(t => {
                 let nama = t['Nama Barang (Auto)'] || '-';
                 let jml = parseInt(t['Jumlah'] || 0);
-                if(!rekap[nama]) rekap[nama] = { masuk: 0, keluar: 0, t_masuk: 0, t_keluar: 0 };
+                if(!rekap[nama]) rekap[rekap_nama] = { masuk: 0, keluar: 0, t_masuk: 0, t_keluar: 0 };
                 let isGudangRelevant = (selectedGudang === "" || t['Gudang Asal'] === selectedGudang || t['Gudang Tujuan'] === selectedGudang);
                 if(isGudangRelevant) {
                     if(t['Tipe Transaksi'] === 'Masuk' && (selectedGudang === "" || t['Gudang Tujuan'] === selectedGudang)) rekap[nama].masuk += jml;
@@ -608,12 +608,17 @@
                 form.className = "text-[9pt]";
                 let dateVal = item['Tanggal'] || new Date().toISOString().split('T')[0];
                 let docVal = item['No Doc'] || generateUniqueDocCode(dateVal);
+                let idDoToVal = item['ID DO-TO'] || '';
 
                 let headerHTML = `
                     <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4 bg-gray-50 p-4 rounded border">
                         <div>
                             <label class="block text-[8pt] font-medium text-gray-700 mb-1">Tanggal</label>
                             <input type="date" name="Tanggal" value="${dateVal}" onchange="onTanggalChange(this.value)" class="w-full border p-1.5 rounded text-[8pt]" required>
+                        </div>
+                        <div>
+                            <label class="block text-[8pt] font-medium text-gray-700 mb-1">ID DO-TO</label>
+                            <input type="text" name="ID DO-TO" value="${idDoToVal}" class="w-full border p-1.5 rounded text-[8pt] bg-white font-bold text-gray-800" required>
                         </div>
                         <div>
                             <label class="block text-[8pt] font-medium text-gray-700 mb-1">No Doc</label>
@@ -652,7 +657,7 @@
                             <label class="block text-[8pt] font-medium text-gray-700 mb-1">Petugas</label>
                             <input type="text" name="Petugas" value="${item['Petugas'] || ''}" class="w-full border p-1.5 rounded text-[8pt]">
                         </div>
-                        <div>
+                        <div class="col-span-2 md:col-span-4">
                             <label class="block text-[8pt] font-medium text-gray-700 mb-1">Keterangan</label>
                             <input type="text" name="Keterangan" value="${item['Keterangan'] || ''}" class="w-full border p-1.5 rounded text-[8pt]">
                         </div>
@@ -724,7 +729,8 @@
             // LOGIKA SAVE MASTER-DETAIL TRANSAKSI
             if(currentSection === 'transaksi') {
                 let tgl = formData.get('Tanggal');
-                let docVal = formData.get('No Doc'); // Gunakan yang sudah di generate
+                let idDoTo = formData.get('ID DO-TO'); 
+                let docVal = formData.get('No Doc'); 
                 let tipe = formData.get('Tipe Transaksi');
                 let asal = formData.get('Gudang Asal');
                 let tujuan = formData.get('Gudang Tujuan');
@@ -746,12 +752,9 @@
 
                 let newItems = [];
                 for(let i = 0; i < kats.length; i++){
-                    // Pembuatan ID Transaksi Unik per baris
-                    let newIdAuto = 'TX-' + Date.now().toString().slice(-4) + Math.floor(Math.random() * 100);
-                    
                     newItems.push({
-                        "ID (Auto)": isNewInput ? newIdAuto : db.transaksi[editIndex]['ID (Auto)'],
                         "Tanggal": tgl,
+                        "ID DO-TO": idDoTo,
                         "No Doc": docVal,
                         "Tipe Transaksi": tipe,
                         "Gudang Asal": asal,
