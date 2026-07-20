@@ -26,9 +26,20 @@
   };
 
   const app = initializeApp(firebaseConfig);
+  
   window.fbDb = getDatabase(app);
-  window.fbRef = ref; window.fbSet = set; window.fbGet = get; window.fbChild = child; window.fbRemove = remove;
-  window.initApp = function() { loadFromFirebase(); };
+  window.fbRef = ref;
+  window.fbSet = set;
+  window.fbGet = get;
+  window.fbChild = child;
+  window.fbRemove = remove;
+
+  if (typeof window.initApp === 'function') {
+      window.initApp();
+  }
+  window.initApp = function() {
+      loadFromFirebase();
+  };
 </script>
 <body class="bg-gray-50 min-h-screen">
     <div class="max-w-7xl mx-auto p-4 md:p-8">
@@ -37,104 +48,193 @@
             <button onclick="renderDashboard()" class="bg-indigo-700 hover:bg-indigo-600 px-4 py-2 rounded text-[9pt] transition">Dashboard</button>
         </header>
 
-        <main id="main-content" class="bg-white p-6 rounded-b-xl shadow-md min-h-[500px]"></main>
+        <main id="main-content" class="bg-white p-6 rounded-b-xl shadow-md min-h-[500px]">
+        </main>
         
-        <footer class="mt-6 text-[9pt] text-gray-500 text-left">&copy; 2026 Acero Cetha Metalindo.</footer>
+        <footer class="mt-6 text-[9pt] text-gray-500 text-left">
+            &copy; 2026 Acero Cetha Metalindo. Hak Cipta Dilindungi.
+        </footer>
     </div>
 
-    <!-- Modal -->
     <div id="modal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center p-4 z-50">
         <div class="bg-white p-6 rounded-xl w-full max-w-4xl shadow-2xl max-h-[90vh] overflow-y-auto">
             <h2 id="modal-title" class="text-[11pt] font-bold mb-4">Edit Data</h2>
-            <div id="modal-body"><form id="data-form"></form></div>
+            <div id="modal-body">
+                <form id="data-form"></form>
+            </div>
             <div class="mt-6 flex justify-end space-x-3 border-t pt-4">
                 <button onclick="closeModal()" class="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300 text-[9pt]">Tutup</button>
-                <div id="action-buttons" class="space-x-3">
-                    <button id="btn-save" onclick="saveData(false)" class="px-4 py-2 bg-indigo-700 text-white rounded hover:bg-indigo-600 text-[9pt]">Simpan</button>
-                    <button id="btn-selesai" onclick="saveAndPrint()" class="px-4 py-2 bg-green-700 text-white rounded hover:bg-green-600 text-[9pt]">Selesai & Print</button>
-                </div>
+                <button id="btn-save" onclick="saveData()" class="px-4 py-2 bg-indigo-700 text-white rounded hover:bg-indigo-600 text-[9pt]">Simpan</button>
             </div>
         </div>
     </div>
 
     <script>
-        let db = JSON.parse(localStorage.getItem('wms_app_data')) || { "gudang":[], "project":[], "barang":[], "transaksi":[] };
+        const initialData = {
+            "gudang": [{"Kode Gudang": "GDG-01", "Nama Gudang": "Gudang Pusat"}, {"Kode Gudang": "GDG-02", "Nama Gudang": "Gudang Cabang"}],
+            "project": [{"Kode Project": "PRJ-001", "Nama Project": "Proyek A"}],
+            "barang": [
+                {"Kategori": "Material", "Jenis": "Besi", "Kode Barang": "BRG-001", "Nama Barang": "Besi Beton"}, 
+                {"Kategori": "Material", "Jenis": "Semen", "Kode Barang": "BRG-002", "Nama Barang": "Semen Tiga Roda"},
+                {"Kategori": "Tools", "Jenis": "Obeng", "Kode Barang": "BRG-003", "Nama Barang": "Obeng Plus"}
+            ],
+            "transaksi": [
+                {
+                    "ID (Auto)": "TX-001", 
+                    "Tanggal": "2026-07-16", 
+                    "No Doc": "DOC-ACM-849201", 
+                    "Tipe Transaksi": "Masuk", 
+                    "Gudang Asal": "", 
+                    "Gudang Tujuan": "GDG-01", 
+                    "Kode Project": "PRJ-001", 
+                    "Kategori": "Material", 
+                    "Jenis": "Besi", 
+                    "Kode Barang": "BRG-001", 
+                    "Nama Barang (Auto)": "Besi Beton", 
+                    "Jumlah": 100,
+                    "Petugas": "Budi", 
+                    "Keterangan": "Stok awal proyek" 
+                }
+            ]
+        };
+        
+        let db = JSON.parse(localStorage.getItem('wms_app_data')) || initialData;
         let currentSection = 'gudang';
         let editIndex = -1;
 
         function saveToLocal() { localStorage.setItem('wms_app_data', JSON.stringify(db)); }
 
-        function saveAndPrint() {
-            const form = document.getElementById('data-form');
-            if(!form.checkValidity()) { form.reportValidity(); return; }
-            
-            // 1. Simpan data secara silent
-            saveData(true);
-            
-            // 2. Ambil No Doc dari form
-            const noDoc = form.querySelector('input[name="No Doc"]').value;
-            
-            // 3. Print PDF
-            const items = db.transaksi.filter(x => x['No Doc'] === noDoc);
-            if(items.length > 0) {
-                printNotaPDF(items[0]);
-                closeModal();
-                renderDashboard();
-            } else {
-                alert("Gagal memproses print.");
+        function deleteData(index) {
+            if(confirm("Yakin ingin menghapus data ini?")) {
+                db[currentSection].splice(index, 1);
+                saveToLocal();
+                syncToFirebase();
+                renderTable(currentSection);
             }
         }
 
-        function saveData(silent = false) {
-            const form = document.getElementById('data-form');
-            if(!form.checkValidity()) { if(!silent) form.reportValidity(); return; }
+        function printNotaPDF(t) {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF('p', 'pt', 'a4'); 
+            
+            // Ambil SEMUA data barang yang nomor dokumennya sama
+            let allItems = db.transaksi.filter(x => x['No Doc'] === t['No Doc']);
+            
+            let gdgAsal = db.gudang.find(g => g['Kode Gudang'] === t['Gudang Asal'])?.['Nama Gudang'] || '-';
+            let gdgTujuan = db.gudang.find(g => g['Kode Gudang'] === t['Gudang Tujuan'])?.['Nama Gudang'] || '-';
+            let nmProyek = db.project.find(p => p['Kode Project'] === t['Kode Project'])?.['Nama Project'] || '-';
 
-            const formData = new FormData(form);
-            let isNewInput = (editIndex === -1);
+            // --- HEADER ---
+            doc.setFont("helvetica", "normal"); 
+            doc.setFontSize(12); 
+            doc.text("NOTA PERMINTAAN MATERIAL", 40, 60);
+            doc.setFontSize(10); 
+            doc.text("PT Acero Cetha Metalindo", 40, 75); 
 
-            if(currentSection === 'transaksi') {
-                let docVal = formData.get('No Doc');
-                let kats = formData.getAll('Kategori[]');
-                let jens = formData.getAll('Jenis[]');
-                let kbs = formData.getAll('Kode Barang[]');
-                let nbs = formData.getAll('Nama Barang (Auto)[]');
-                let jmls = formData.getAll('Jumlah[]');
+            // Metadata 
+            doc.setFontSize(8); 
+            doc.text(`No. Doc : ${t['No Doc'] || '-'}`, 40, 95);
+            doc.text(`Tanggal : ${t['Tanggal'] || '-'}`, 400, 95);
 
-                // Hapus data lama untuk No Doc ini jika edit
-                if(!isNewInput) db.transaksi = db.transaksi.filter(x => x['No Doc'] !== db.transaksi[editIndex]['No Doc']);
+            // --- TABEL ---
+            let bodyData = [];
+            allItems.forEach(item => {
+                bodyData.push([
+                    item['Kode Barang'] || '-',
+                    item['Nama Barang (Auto)'] || '-',
+                    item['Jumlah'] || '0',
+                    db.gudang.find(g => g['Kode Gudang'] === item['Gudang Asal'])?.['Nama Gudang'] || '-',
+                    db.gudang.find(g => g['Kode Gudang'] === item['Gudang Tujuan'])?.['Nama Gudang'] || '-',
+                    db.project.find(p => p['Kode Project'] === item['Kode Project'])?.['Nama Project'] || '-',
+                    item['Keterangan'] || '-'
+                ]);
+            });
+            
+            while (bodyData.length < 6) {
+                bodyData.push(['', '', '', '', '', '', '']);
+            }
 
-                for(let i = 0; i < kats.length; i++){
-                    if(!kbs[i]) continue;
-                    db.transaksi.push({
-                        "ID (Auto)": 'TX-' + Date.now() + i,
-                        "Tanggal": formData.get('Tanggal'),
-                        "No Doc": docVal,
-                        "Tipe Transaksi": formData.get('Tipe Transaksi'),
-                        "Gudang Asal": formData.get('Gudang Asal'),
-                        "Gudang Tujuan": formData.get('Gudang Tujuan'),
-                        "Kode Project": formData.get('Kode Project'),
-                        "Kategori": kats[i],
-                        "Jenis": jens[i],
-                        "Kode Barang": kbs[i],
-                        "Nama Barang (Auto)": nbs[i],
-                        "Jumlah": parseInt(jmls[i] || 0),
-                        "Petugas": formData.get('Petugas'),
-                        "Keterangan": formData.get('Keterangan')
-                    });
+            doc.autoTable({
+                startY: 110,
+                head: [['ID BRG', 'NAMA MATERIAL', 'QTY', 'DARI', 'TUJUAN', 'NAMA PROYEK', 'KETERANGAN']],
+                body: bodyData,
+                theme: 'grid',
+                headStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0], fontStyle: 'bold', halign: 'center', fontSize: 8 },
+                bodyStyles: { halign: 'center', valign: 'middle', fontSize: 8 },
+                columnStyles: { 1: { halign: 'left' } }
+            });
+
+            // --- TANDA TANGAN ---
+            let finalY = doc.lastAutoTable.finalY + 40;
+            doc.setFontSize(8); 
+
+            doc.text("Pickup by,", 40, finalY);
+            let namaPetugas = t['Petugas'] || '';
+            if (namaPetugas) { doc.text(namaPetugas.toUpperCase(), 40, finalY + 38); }
+            doc.line(40, finalY + 40, 140, finalY + 40); 
+
+            doc.text("Disetujui oleh,", 230, finalY);
+            doc.line(230, finalY + 40, 330, finalY + 40); 
+
+            doc.text("Diketahui oleh,", 420, finalY);
+            doc.text("RUDI", 420, finalY + 38);
+            doc.line(420, finalY + 40, 520, finalY + 40);
+
+            doc.save(`NOTA_${t['No Doc']}.pdf`);
+        }        
+
+        function exportCSV() {
+            let data = db[currentSection];
+            if (data.length === 0) return alert("Tidak ada data untuk diexport!");
+            let csv = Object.keys(data[0]).join(',') + '\n';
+            data.forEach(row => {
+                csv += Object.values(row).map(val => `"${val}"`).join(',') + '\n';
+            });
+            let blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            let url = URL.createObjectURL(blob);
+            let a = document.createElement('a');
+            a.href = url;
+            a.download = currentSection + '.csv';
+            a.click();
+        }
+
+        function exportRekapStokCSV() {
+            const selectedGudang = document.getElementById('gudang-filter')?.value || "";
+            let rekap = {};
+            db.transaksi.forEach(t => {
+                let nama = t['Nama Barang (Auto)'] || '-';
+                let jml = parseInt(t['Jumlah'] || 0);
+                if(!rekap[nama]) rekap[nama] = { masuk: 0, keluar: 0, t_masuk: 0, t_keluar: 0 };
+                let isGudangRelevant = (selectedGudang === "" || t['Gudang Asal'] === selectedGudang || t['Gudang Tujuan'] === selectedGudang);
+                if(isGudangRelevant) {
+                    if(t['Tipe Transaksi'] === 'Masuk' && (selectedGudang === "" || t['Gudang Tujuan'] === selectedGudang)) rekap[nama].masuk += jml;
+                    if(t['Tipe Transaksi'] === 'Keluar' && (selectedGudang === "" || t['Gudang Asal'] === selectedGudang)) rekap[nama].keluar += jml;
+                    if(t['Tipe Transaksi'] === 'Transfer') {
+                        if(t['Gudang Tujuan'] === selectedGudang || selectedGudang === "") rekap[nama].t_masuk += jml;
+                        if(t['Gudang Asal'] === selectedGudang || selectedGudang === "") rekap[nama].t_keluar += jml;
+                    }
                 }
-            } else {
-                let newItem = {};
-                for (let [key, value] of formData.entries()) { newItem[key] = value; }
-                if (isNewInput) db[currentSection].push(newItem);
-                else db[currentSection][editIndex] = newItem;
-            }
+            });
 
-            saveToLocal();
-            syncToFirebase();
-            if(!silent) { closeModal(); renderDashboard(); }
+            let csv = 'Nama Barang,Masuk,Keluar,T. Masuk,T. Keluar,Sisa\n';
+            for(let nama in rekap) {
+                let sisa = rekap[nama].masuk - rekap[nama].keluar + rekap[nama].t_masuk - rekap[nama].t_keluar;
+                csv += `"${nama}",${rekap[nama].masuk},${rekap[nama].keluar},${rekap[nama].t_masuk},${rekap[nama].t_keluar},${sisa}\n`;
+            }
+            
+            let namaGudang = "Semua_Gudang";
+            if (selectedGudang) {
+                let g = db.gudang.find(x => x['Kode Gudang'] === selectedGudang);
+                if (g) namaGudang = g['Nama Gudang'].replace(/\s+/g, '_');
+            }
+            
+            let blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            let a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = `Rekap_Stok_${namaGudang}.csv`;
+            a.click();
         }
 
-        /* --- FUNGSI UTILITAS --- */
         function renderDashboard() {
             document.getElementById('main-content').innerHTML = `
                 <h2 class="text-2xl font-bold mb-6">Dashboard Utama</h2>
@@ -143,6 +243,8 @@
                     <button onclick="renderTable('project')" class="p-6 bg-green-700 text-white rounded-lg shadow hover:bg-green-600">Master Project</button>
                     <button onclick="renderTable('barang')" class="p-6 bg-yellow-600 text-white rounded-lg shadow hover:bg-yellow-500">Master Barang</button>
                     <button onclick="renderTable('transaksi')" class="p-6 bg-red-700 text-white rounded-lg shadow hover:bg-red-600">Data Transaksi</button>
+                    <button onclick="renderRekapStok()" class="p-6 bg-purple-700 text-white rounded-lg shadow hover:bg-purple-600">Stok Gudang</button>
+                    <button onclick="renderRekapStokProyek()" class="p-6 bg-pink-700 text-white rounded-lg shadow hover:bg-pink-600">Stok Proyek</button>
                     <button onclick="currentSection = 'transaksi'; openModal(-1);" class="p-6 bg-teal-700 text-white rounded-lg shadow hover:bg-teal-600">Input Transaksi</button>
                 </div>
             `;
@@ -150,21 +252,308 @@
 
         function renderTable(section) {
             currentSection = section;
-            let html = `
-                <div class="sticky top-20 z-40 bg-white pt-2 pb-4 mb-4 flex justify-between items-center border-b">
-                    <h2 class="text-[9pt] font-bold capitalize">${section}</h2>
-                    <button onclick="openModal(-1)" class="bg-indigo-700 text-white px-4 py-2 rounded text-[9pt]"> + Tambah</button>
-                </div>
-                <div class="overflow-x-auto"><table class="w-full border-collapse border text-[9pt]"><thead><tr class="bg-gray-100">`;
             
-            if(db[section].length > 0) {
-                Object.keys(db[section][0]).forEach(k => html += `<th class="border p-2">${k}</th>`);
-                html += `<th class="border p-2">Aksi</th></tr></thead><tbody>`;
-                db[section].forEach((item, index) => {
-                    html += `<tr>`;
-                    Object.values(item).forEach(v => html += `<td class="border p-2">${v}</td>`);
-                    html += `<td class="border p-2"><button onclick="openModal(${index})" class="text-blue-600">Edit</button></td></tr>`;
+            if (section === 'transaksi') {
+                db[section].sort((a, b) => new Date(b['Tanggal'] || 0) - new Date(a['Tanggal'] || 0));
+            } else if (section === 'barang') {
+                db[section].sort((a, b) => {
+                    let catA = (a['Kategori'] || "").toLowerCase();
+                    let catB = (b['Kategori'] || "").toLowerCase();
+                    let jenisA = (a['Jenis'] || "").toLowerCase();
+                    let jenisB = (b['Jenis'] || "").toLowerCase();
+
+                    if (catA < catB) return -1;
+                    if (catA > catB) return 1;
+                    if (jenisA < jenisB) return -1;
+                    if (jenisA > jenisB) return 1;
+                    return 0;
                 });
+            }
+            
+            let data = db[section];
+            let exportBtn = (section === 'transaksi' || section === 'barang') ? `<button onclick="exportCSV()" class="bg-green-600 text-white px-4 py-2 rounded shadow hover:bg-green-500 mr-2 text-[9pt]">Export CSV</button>` : '';
+            
+            let html = `
+                <div class="sticky top-20 z-40 bg-white pt-2 pb-4 mb-4 flex justify-between items-center border-b border-gray-200">
+                    <h2 class="text-[9pt] font-bold capitalize text-gray-800">${section.replace('_', ' ')}</h2>
+                    <div>
+                        ${exportBtn}
+                        <button onclick="openModal(-1)" class="bg-indigo-700 text-white px-4 py-2 rounded shadow hover:bg-indigo-600 text-[9pt]"> + Tambah Data</button>
+                    </div>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse border border-gray-200 table-compact">
+                        <thead class="bg-gray-50"><tr>`;
+            
+            if (data.length > 0) {
+                Object.keys(data[0]).forEach(k => html += `<th class="border text-[9pt] font-bold uppercase text-gray-600">${k}</th>`);
+                html += `<th class="border text-[9pt] font-bold uppercase text-gray-600">Aksi</th></tr></thead><tbody>`;
+
+                data.forEach((item, index) => {
+                    html += `<tr class="hover:bg-gray-50 border-b">`;
+                    Object.values(item).forEach(v => html += `<td class="border text-[9pt] text-gray-800">${v}</td>`);
+                    
+                    let aksi = `<button onclick="openModal(${index})" class="text-blue-600 hover:underline text-[9pt] font-bold">Edit</button>`;
+                    if (section === 'barang' || section === 'transaksi') {
+                        aksi += ` | <button onclick="deleteData(${index})" class="text-red-600 hover:underline text-[9pt] font-bold">Hapus</button>`;
+                    }
+                    html += `<td class="border">${aksi}</td></tr>`;
+                });
+            } else {
+                let defaultKeys = [];
+                if(section === 'barang') defaultKeys = ["Kategori", "Jenis", "Kode Barang", "Nama Barang"];
+                else if(section === 'transaksi') defaultKeys = ["ID (Auto)", "Tanggal", "No Doc", "Tipe Transaksi", "Gudang Asal", "Gudang Tujuan", "Kode Project", "Kategori", "Jenis", "Kode Barang", "Nama Barang (Auto)", "Jumlah", "Petugas", "Keterangan"];
+                else if(section === 'gudang') defaultKeys = ["Kode Gudang", "Nama Gudang"];
+                else if(section === 'project') defaultKeys = ["Kode Project", "Nama Project"];
+
+                defaultKeys.forEach(k => html += `<th class="border text-[9pt] font-bold uppercase text-gray-600">${k}</th>`);
+                html += `<th class="border text-[9pt] font-bold uppercase text-gray-600">Aksi</th></tr></thead><tbody><tr><td colspan="${defaultKeys.length + 1}" class="text-center p-4 text-gray-400">Tidak ada data</td></tr>`;
+            }
+            html += `</tbody></table></div>`;
+            document.getElementById('main-content').innerHTML = html;
+        }
+
+        function generateProjectCode() {
+            if (!db.project || db.project.length === 0) return 'PRJ-001';
+            let maxNum = 0;
+            db.project.forEach(p => {
+                let code = p['Kode Project'];
+                if (code && code.startsWith('PRJ-')) {
+                    let num = parseInt(code.replace('PRJ-', ''), 10);
+                    if (!isNaN(num) && num > maxNum) maxNum = num;
+                }
+            });
+            return 'PRJ-' + (maxNum + 1).toString().padStart(3, '0');
+        }
+        
+        function generateUniqueDocCode() {
+            let isUnique = false;
+            let code = '';
+            while(!isUnique) {
+                let rand = Math.floor(100000 + Math.random() * 900000); 
+                code = `DOC-ACM-${rand}`;
+                isUnique = !db.transaksi.some(t => t['No Doc'] === code);
+            }
+            return code;
+        }
+
+        function onTanggalChange(val) {
+            const docInput = document.querySelector('input[name="No Doc"]');
+            if (docInput && val && !docInput.value) {
+                docInput.value = generateUniqueDocCode();
+            }
+        }
+
+        /* --- FUNGSI KHUSUS ROW DETAIL TRANSAKSI --- */
+        function addTransactionRow(item = {}) {
+            let tr = document.createElement('tr');
+            
+            let categories = [...new Set(db.barang.map(b => b['Kategori']))];
+            let catOptions = categories.map(c => `<option value="${c}" ${item['Kategori'] === c ? 'selected' : ''}>${c}</option>`).join('');
+
+            tr.innerHTML = `
+                <td class="border p-1">
+                    <select name="Kategori[]" onchange="onKategoriChangeRow(this)" class="w-full border p-1 rounded text-[8pt]" required>
+                        <option value="">-- Pilih --</option>
+                        ${catOptions}
+                    </select>
+                </td>
+                <td class="border p-1">
+                    <select name="Jenis[]" onchange="onJenisChangeRow(this)" class="w-full border p-1 rounded text-[8pt]" required>
+                        <option value="">-- Pilih --</option>
+                    </select>
+                </td>
+                <td class="border p-1">
+                    <select name="Kode Barang[]" onchange="updateNamaBarangRow(this)" class="w-full border p-1 rounded text-[8pt]" required>
+                        <option value="">-- Pilih --</option>
+                    </select>
+                </td>
+                <td class="border p-1">
+                    <input type="text" name="Nama Barang (Auto)[]" value="${item['Nama Barang (Auto)'] || ''}" readonly class="w-full border p-1 rounded bg-gray-100 text-[8pt]">
+                </td>
+                <td class="border p-1">
+                    <input type="number" name="Jumlah[]" value="${item['Jumlah'] || ''}" class="w-full border p-1 rounded text-[8pt] text-center" required min="1">
+                </td>
+                <td class="border p-1 text-center">
+                    <button type="button" onclick="this.closest('tr').remove()" class="text-red-500 hover:text-red-700 font-bold px-2">&times;</button>
+                </td>
+            `;
+            document.getElementById('item-tbody').appendChild(tr);
+
+            // Memicu trigger jika mode edit (sudah ada data kategori)
+            if (item['Kategori']) {
+                let catSelect = tr.querySelector('select[name="Kategori[]"]');
+                onKategoriChangeRow(catSelect, item['Jenis'], item['Kode Barang']);
+            }
+        }
+
+        function onKategoriChangeRow(el, preselectJenis = '', preselectKode = '') {
+            let tr = el.closest('tr');
+            let val = el.value;
+            let jenisSelect = tr.querySelector('select[name="Jenis[]"]');
+            let kodeSelect = tr.querySelector('select[name="Kode Barang[]"]');
+            let namaInput = tr.querySelector('input[name="Nama Barang (Auto)[]"]');
+            
+            jenisSelect.innerHTML = '<option value="">-- Pilih --</option>';
+            kodeSelect.innerHTML = '<option value="">-- Pilih --</option>';
+            namaInput.value = '';
+
+            if (val) {
+                let filteredJenis = [...new Set(db.barang.filter(b => b['Kategori'] === val).map(b => b['Jenis']))];
+                filteredJenis.forEach(j => {
+                    jenisSelect.innerHTML += `<option value="${j}" ${preselectJenis === j ? 'selected' : ''}>${j}</option>`;
+                });
+                if(preselectJenis) onJenisChangeRow(jenisSelect, preselectKode);
+            }
+        }
+
+        function onJenisChangeRow(el, preselectKode = '') {
+            let tr = el.closest('tr');
+            let kategoriVal = tr.querySelector('select[name="Kategori[]"]').value;
+            let jenisVal = el.value;
+            let kodeSelect = tr.querySelector('select[name="Kode Barang[]"]');
+            let namaInput = tr.querySelector('input[name="Nama Barang (Auto)[]"]');
+
+            kodeSelect.innerHTML = '<option value="">-- Pilih --</option>';
+            namaInput.value = '';
+
+            if (jenisVal && kategoriVal) {
+                let filteredBarang = db.barang.filter(b => b['Kategori'] === kategoriVal && b['Jenis'] === jenisVal);
+                filteredBarang.forEach(b => {
+                    kodeSelect.innerHTML += `<option value="${b['Kode Barang']}" ${preselectKode === b['Kode Barang'] ? 'selected' : ''}>${b['Kode Barang']} - ${b['Nama Barang']}</option>`;
+                });
+                if(preselectKode) updateNamaBarangRow(kodeSelect);
+            }
+        }
+
+        function updateNamaBarangRow(el) {
+            let tr = el.closest('tr');
+            let kode = el.value;
+            const barang = db.barang.find(b => b['Kode Barang'] === kode);
+            const namaInput = tr.querySelector('input[name="Nama Barang (Auto)[]"]');
+            if (namaInput) namaInput.value = barang ? barang['Nama Barang'] : '';
+        }
+        /* --------------------------------------------------- */
+
+        function renderRekapStok() {
+            const selectedGudang = document.getElementById('gudang-filter')?.value || "";
+            let rekap = {};
+            db.transaksi.forEach(t => {
+                let nama = t['Nama Barang (Auto)'] || '-';
+                let jml = parseInt(t['Jumlah'] || 0);
+                if(!rekap[nama]) rekap[nama] = { masuk: 0, keluar: 0, t_masuk: 0, t_keluar: 0 };
+                let isGudangRelevant = (selectedGudang === "" || t['Gudang Asal'] === selectedGudang || t['Gudang Tujuan'] === selectedGudang);
+                if(isGudangRelevant) {
+                    if(t['Tipe Transaksi'] === 'Masuk' && (selectedGudang === "" || t['Gudang Tujuan'] === selectedGudang)) rekap[nama].masuk += jml;
+                    if(t['Tipe Transaksi'] === 'Keluar' && (selectedGudang === "" || t['Gudang Asal'] === selectedGudang)) rekap[nama].keluar += jml;
+                    if(t['Tipe Transaksi'] === 'Transfer') {
+                        if(t['Gudang Tujuan'] === selectedGudang || selectedGudang === "") rekap[nama].t_masuk += jml;
+                        if(t['Gudang Asal'] === selectedGudang || selectedGudang === "") rekap[nama].t_keluar += jml;
+                    }
+                }
+            });
+
+            let options = db.gudang.map(g => `<option value="${g['Kode Gudang']}" ${selectedGudang === g['Kode Gudang'] ? 'selected' : ''}>${g['Nama Gudang']}</option>`).join('');
+            
+            let html = `
+                <div class="sticky top-20 z-40 bg-white pt-2 pb-4 mb-4 flex justify-between items-end border-b border-gray-200">
+                    <div class="w-full md:w-1/3">
+                        <h2 class="text-[9pt] font-bold mb-4">Rekap Stok Gudang</h2>
+                        <label class="block text-[9pt] font-medium text-gray-700 mb-1">Pilih Gudang:</label>
+                        <select id="gudang-filter" onchange="renderRekapStok()" class="w-full border p-2 rounded text-[9pt]">
+                            <option value="">-- Semua Gudang --</option>
+                            ${options}
+                        </select>
+                    </div>
+                    <div>
+                        <button onclick="exportRekapStokCSV()" class="bg-green-600 text-white px-4 py-2 rounded shadow hover:bg-green-500 text-[9pt]">Export CSV</button>
+                    </div>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse border border-gray-200 table-compact">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="border text-[9pt] font-bold uppercase text-gray-600">Nama Barang</th>
+                                <th class="border text-[9pt] font-bold uppercase text-gray-600">Masuk</th>
+                                <th class="border text-[9pt] font-bold uppercase text-gray-600">Keluar</th>
+                                <th class="border text-[9pt] font-bold uppercase text-gray-600">T. Masuk</th>
+                                <th class="border text-[9pt] font-bold uppercase text-gray-600">T. Keluar</th>
+                                <th class="border text-[9pt] font-bold uppercase text-gray-600">Sisa</th>
+                            </tr>
+                        </thead>
+                        <tbody>`;
+                        
+            for(let nama in rekap) {
+                let sisa = rekap[nama].masuk - rekap[nama].keluar + rekap[nama].t_masuk - rekap[nama].t_keluar;
+                html += `<tr><td class="border text-[9pt] font-medium">${nama}</td><td class="border text-[9pt]">${rekap[nama].masuk}</td><td class="border text-[9pt]">${rekap[nama].keluar}</td><td class="border text-[9pt]">${rekap[nama].t_masuk}</td><td class="border text-[9pt]">${rekap[nama].t_keluar}</td><td class="border text-[9pt] font-bold text-blue-600 underline cursor-pointer hover:text-blue-800" onclick="showBreakdown('${nama}')">${sisa}</td></tr>`;
+            }
+            html += `</tbody></table></div>`;
+            document.getElementById('main-content').innerHTML = html;
+        }
+
+        function showBreakdown(namaBarang) {
+            const selectedGudang = document.getElementById('gudang-filter')?.value || "";
+            let breakdown = {};
+            db.transaksi.forEach(t => {
+                if(t['Nama Barang (Auto)'] === namaBarang) {
+                    let isGudangRelevant = (selectedGudang === "" || t['Gudang Asal'] === selectedGudang || t['Gudang Tujuan'] === selectedGudang);
+                    if(isGudangRelevant) {
+                        let kode = t['Kode Barang'];
+                        if(!breakdown[kode]) breakdown[kode] = 0;
+                        let jml = parseInt(t['Jumlah'] || 0);
+                        if(t['Tipe Transaksi'] === 'Masuk' && (selectedGudang === "" || t['Gudang Tujuan'] === selectedGudang)) breakdown[kode] += jml;
+                        if(t['Tipe Transaksi'] === 'Keluar' && (selectedGudang === "" || t['Gudang Asal'] === selectedGudang)) breakdown[kode] -= jml;
+                        if(t['Tipe Transaksi'] === 'Transfer') {
+                            if(t['Gudang Tujuan'] === selectedGudang || selectedGudang === "") breakdown[kode] += jml;
+                            if(t['Gudang Asal'] === selectedGudang || selectedGudang === "") breakdown[kode] -= jml;
+                        }
+                    }
+                }
+            });
+            document.getElementById('modal-title').innerText = `Breakdown Stok: ${namaBarang}`;
+            document.getElementById('btn-save').classList.add('hidden');
+            let html = `<div class="overflow-x-auto"><table class="w-full text-left border-collapse border border-gray-200 text-[9pt] table-compact"><thead class="bg-gray-100"><tr><th class="border text-[9pt] font-bold uppercase text-gray-600">Kode Barang</th><th class="border text-[9pt] font-bold uppercase text-gray-600">Total Sisa</th></tr></thead><tbody>`;
+            for(let kode in breakdown) { html += `<tr><td class="border text-[9pt] font-medium">${kode}</td><td class="border text-[9pt] font-bold">${breakdown[kode]}</td></tr>`; }
+            html += `</tbody></table></div>`;
+            document.getElementById('data-form').innerHTML = html;
+            document.getElementById('modal').classList.remove('hidden');
+        }
+
+        function renderRekapStokProyek() {
+            const selectedProject = document.getElementById('project-filter')?.value || "";
+            let rekap = {};
+            db.transaksi.forEach(t => {
+                if (selectedProject !== "" && t['Kode Project'] !== selectedProject) return;
+                let nama = t['Nama Barang (Auto)'] || '-';
+                let jml = parseInt(t['Jumlah'] || 0);
+                if(!rekap[nama]) rekap[nama] = { masuk: 0, keluar: 0 };
+                if(t['Tipe Transaksi'] === 'Masuk') rekap[nama].masuk += jml;
+                if(t['Tipe Transaksi'] === 'Keluar') rekap[nama].keluar += jml;
+            });
+            let options = db.project.map(p => `<option value="${p['Kode Project']}" ${selectedProject === p['Kode Project'] ? 'selected' : ''}>${p['Nama Project']}</option>`).join('');
+            let html = `
+                <div class="sticky top-20 z-40 bg-white pt-2 pb-4 mb-4 border-b border-gray-200">
+                    <h2 class="text-[9pt] font-bold mb-4">Rekap Stok Proyek</h2>
+                    <label class="block text-[9pt] font-medium text-gray-700 mb-1">Pilih Proyek:</label>
+                    <select id="project-filter" onchange="renderRekapStokProyek()" class="w-full md:w-1/3 border p-2 rounded text-[9pt]">
+                        <option value="">-- Semua Proyek --</option>
+                        ${options}
+                    </select>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse border border-gray-200 table-compact">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="border text-[9pt] font-bold uppercase text-gray-600">Nama Barang</th>
+                                <th class="border text-[9pt] font-bold uppercase text-gray-600">Total Masuk</th>
+                                <th class="border text-[9pt] font-bold uppercase text-gray-600">Total Keluar</th>
+                                <th class="border text-[9pt] font-bold uppercase text-gray-600">Netto</th>
+                            </tr>
+                        </thead>
+                        <tbody>`; 
+            for(let nama in rekap) {
+                let netto = rekap[nama].masuk - rekap[nama].keluar;
+                html += `<tr><td class="border text-[9pt] font-medium">${nama}</td><td class="border text-[9pt]">${rekap[nama].masuk}</td><td class="border text-[9pt]">${rekap[nama].keluar}</td><td class="border text-[9pt] font-bold ${netto < 0 ? 'text-red-600' : 'text-green-600'}">${netto}</td></tr>`;
             }
             html += `</tbody></table></div>`;
             document.getElementById('main-content').innerHTML = html;
@@ -172,63 +561,237 @@
 
         function openModal(index) {
             editIndex = index;
+            document.getElementById('btn-save').classList.remove('hidden');
+            let btnPdf = document.getElementById('btn-print-pdf');
+            if(!btnPdf) {
+                btnPdf = document.createElement('button');
+                btnPdf.id = 'btn-print-pdf';
+                btnPdf.className = "px-4 py-2 bg-red-600 text-white rounded hover:bg-red-500 text-[9pt] hidden";
+                btnPdf.innerText = "Print PDF";
+                document.getElementById('btn-save').parentNode.insertBefore(btnPdf, document.getElementById('btn-save'));
+            }
+            
             const form = document.getElementById('data-form');
             form.innerHTML = '';
-            document.getElementById('modal').classList.remove('hidden');
             
-            if(currentSection === 'transaksi') {
-                document.getElementById('btn-selesai').classList.remove('hidden');
-                let item = index === -1 ? {} : db.transaksi[index];
-                form.innerHTML = `
-                    <div class="grid grid-cols-2 gap-3 mb-4 bg-gray-50 p-3 rounded">
-                        <div><label class="block text-[8pt]">Tanggal</label><input type="date" name="Tanggal" value="${item['Tanggal'] || new Date().toISOString().split('T')[0]}" class="w-full border p-1 rounded text-right" required></div>
-                        <div><label class="block text-[8pt]">No Doc</label><input type="text" name="No Doc" value="${item['No Doc'] || 'DOC-'+Date.now()}" class="w-full border p-1 rounded" required></div>
-                        <div><label class="block text-[8pt]">Tipe</label><select name="Tipe Transaksi" class="w-full border p-1 rounded"><option>Masuk</option><option>Keluar</option></select></div>
-                    </div>
-                    <table class="w-full border-collapse border mt-4">
-                        <thead><tr class="bg-gray-200"><th class="border p-1 text-[8pt]">Kategori</th><th class="border p-1 text-[8pt]">Jenis</th><th class="border p-1 text-[8pt]">Kode</th><th class="border p-1 text-[8pt]">Nama</th><th class="border p-1 text-[8pt]">Qty</th><th class="border p-1 text-[8pt]">X</th></tr></thead>
-                        <tbody id="item-tbody"></tbody>
-                    </table>
-                `;
-                if(index === -1) {
-                    for(let i=0; i<5; i++) addTransactionRow();
+            const item = index === -1 ? {} : db[currentSection][index];
+            document.getElementById('modal-title').innerText = index === -1 ? 'Tambah Data' : 'Edit Data';
+
+            // JIKA TRANSAKSI: GUNAKAN MODE MASTER-DETAIL
+            if (currentSection === 'transaksi') {
+                if (index !== -1) {
+                    btnPdf.classList.remove('hidden');
+                    btnPdf.onclick = function() { printNotaPDF(db.transaksi[index]); };
                 } else {
-                    addTransactionRow(item);
+                    btnPdf.classList.add('hidden');
                 }
-            } else {
-                document.getElementById('btn-selesai').classList.add('hidden');
-                // Form input master biasa
+
+                form.className = "text-[9pt]";
+                let headerHTML = `
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4 bg-gray-50 p-4 rounded border">
+                        <div>
+                            <label class="block text-[8pt] font-medium text-gray-700 mb-1">Tanggal</label>
+                            <input type="date" name="Tanggal" value="${item['Tanggal'] || new Date().toISOString().split('T')[0]}" onchange="onTanggalChange(this.value)" class="w-full border p-1.5 rounded text-[8pt]" required>
+                        </div>
+                        <div>
+                            <label class="block text-[8pt] font-medium text-gray-700 mb-1">No Doc</label>
+                            <input type="text" name="No Doc" value="${item['No Doc'] || generateUniqueDocCode()}" class="w-full border p-1.5 rounded text-[8pt] bg-white font-bold text-indigo-700" required>
+                        </div>
+                        <div>
+                            <label class="block text-[8pt] font-medium text-gray-700 mb-1">Tipe Transaksi</label>
+                            <select name="Tipe Transaksi" class="w-full border p-1.5 rounded text-[8pt]">
+                                <option value="Masuk" ${item['Tipe Transaksi'] === 'Masuk' ? 'selected' : ''}>Masuk</option>
+                                <option value="Keluar" ${item['Tipe Transaksi'] === 'Keluar' ? 'selected' : ''}>Keluar</option>
+                                <option value="Transfer" ${item['Tipe Transaksi'] === 'Transfer' ? 'selected' : ''}>Transfer</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-[8pt] font-medium text-gray-700 mb-1">Kode Project</label>
+                            <select name="Kode Project" class="w-full border p-1.5 rounded text-[8pt]">
+                                <option value="">-- Pilih --</option>
+                                ${db.project.map(p => `<option value="${p['Kode Project']}" ${item['Kode Project'] === p['Kode Project'] ? 'selected' : ''}>${p['Kode Project']} - ${p['Nama Project']}</option>`).join('')}
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-[8pt] font-medium text-gray-700 mb-1">Gudang Asal</label>
+                            <select name="Gudang Asal" class="w-full border p-1.5 rounded text-[8pt]">
+                                <option value="">-- Pilih --</option>
+                                ${db.gudang.map(g => `<option value="${g['Kode Gudang']}" ${item['Gudang Asal'] === g['Kode Gudang'] ? 'selected' : ''}>${g['Nama Gudang']}</option>`).join('')}
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-[8pt] font-medium text-gray-700 mb-1">Gudang Tujuan</label>
+                            <select name="Gudang Tujuan" class="w-full border p-1.5 rounded text-[8pt]">
+                                <option value="">-- Pilih --</option>
+                                ${db.gudang.map(g => `<option value="${g['Kode Gudang']}" ${item['Gudang Tujuan'] === g['Kode Gudang'] ? 'selected' : ''}>${g['Nama Gudang']}</option>`).join('')}
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-[8pt] font-medium text-gray-700 mb-1">Petugas</label>
+                            <input type="text" name="Petugas" value="${item['Petugas'] || ''}" class="w-full border p-1.5 rounded text-[8pt]">
+                        </div>
+                        <div>
+                            <label class="block text-[8pt] font-medium text-gray-700 mb-1">Keterangan</label>
+                            <input type="text" name="Keterangan" value="${item['Keterangan'] || ''}" class="w-full border p-1.5 rounded text-[8pt]">
+                        </div>
+                    </div>
+                    
+                    <div class="border-t pt-3">
+                        <div class="flex justify-between items-center mb-2">
+                            <h3 class="font-bold text-[10pt] text-gray-700">Detail Material</h3>
+                            <button type="button" onclick="addTransactionRow()" class="bg-indigo-600 text-white px-3 py-1.5 rounded hover:bg-indigo-500 text-[8pt] font-medium">+ Tambah Baris Material</button>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left border-collapse border border-gray-300 table-compact">
+                                <thead class="bg-gray-200">
+                                    <tr>
+                                        <th class="border p-1.5 text-[8pt]">Kategori</th>
+                                        <th class="border p-1.5 text-[8pt]">Jenis</th>
+                                        <th class="border p-1.5 text-[8pt] w-1/4">Kode Barang</th>
+                                        <th class="border p-1.5 text-[8pt]">Nama Barang</th>
+                                        <th class="border p-1.5 text-[8pt] w-20 text-center">Qty</th>
+                                        <th class="border p-1.5 text-[8pt] w-10 text-center">Aksi</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="item-tbody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                `;
+                form.innerHTML = headerHTML;
+                document.getElementById('modal').classList.remove('hidden');
+
+                if (index === -1) {
+                    addTransactionRow();
+                } else {
+                    // Jika mode Edit dari tabel List, tampilkan 1 baris (sesuai baris terpilih)
+                    addTransactionRow(item); 
+                }
+                return;
             }
-        }
 
-        function addTransactionRow(item = {}) {
-            let tr = document.createElement('tr');
-            tr.innerHTML = `
-                <td class="border p-1"><select name="Kategori[]" onchange="onKategoriChangeRow(this)" class="w-full text-[8pt]"><option value="${item['Kategori']||''}">${item['Kategori']||'Pilih'}</option></select></td>
-                <td class="border p-1"><select name="Jenis[]" onchange="onJenisChangeRow(this)" class="w-full text-[8pt]"><option value="${item['Jenis']||''}">${item['Jenis']||'Pilih'}</option></select></td>
-                <td class="border p-1"><select name="Kode Barang[]" onchange="updateNamaBarangRow(this)" class="w-full text-[8pt]"><option value="${item['Kode Barang']||''}">${item['Kode Barang']||'Pilih'}</option></select></td>
-                <td class="border p-1"><input type="text" name="Nama Barang (Auto)[]" value="${item['Nama Barang (Auto)']||''}" class="w-full text-[8pt]" readonly></td>
-                <td class="border p-1"><input type="number" name="Jumlah[]" value="${item['Jumlah']||''}" class="w-full text-[8pt]"></td>
-                <td class="border p-1 text-center"><button type="button" onclick="this.closest('tr').remove()" class="text-red-500">x</button></td>
-            `;
-            document.getElementById('item-tbody').appendChild(tr);
-        }
+            // JIKA BUKAN TRANSAKSI: BENTUK FORM DEFAULT
+            btnPdf.classList.add('hidden');
+            form.className = "grid grid-cols-2 gap-4 text-[9pt]";
+            let keys = currentSection === 'barang' ? ['Kategori', 'Jenis', 'Kode Barang', 'Nama Barang'] : (db[currentSection].length > 0 ? Object.keys(db[currentSection][0]) : []);
 
-        function printNotaPDF(t) {
-            const { jsPDF } = window.jspdf;
-            const doc = new jsPDF();
-            doc.text("NOTA TRANSAKSI", 20, 20);
-            doc.text("No Doc: " + t['No Doc'], 20, 30);
-            doc.text("Tanggal: " + t['Tanggal'], 20, 40);
-            
-            let body = db.transaksi.filter(x => x['No Doc'] === t['No Doc']).map(x => [x['Nama Barang (Auto)'], x['Jumlah']]);
-            doc.autoTable({ head: [['Barang', 'Qty']], body: body, startY: 50 });
-            doc.save('Nota_'+t['No Doc']+'.pdf');
+            keys.forEach(key => {
+                let inputHtml = '';
+                if (currentSection === 'project' && key === 'Kode Project') {
+                    let initialCode = item[key] || (index === -1 ? generateProjectCode() : '');
+                    inputHtml = `<input type="text" name="${key}" value="${initialCode}" class="w-full border p-2 rounded bg-gray-100 cursor-not-allowed text-[9pt]" readonly required>`;
+                } else {
+                    inputHtml = `<input type="text" name="${key}" value="${item[key] || ''}" class="w-full border p-2 rounded text-[9pt]" required>`;
+                }
+                form.innerHTML += `<div><label class="block text-[9pt] font-medium mb-1 text-gray-700">${key}</label>${inputHtml}</div>`;
+            });
+            document.getElementById('modal').classList.remove('hidden');
         }
 
         function closeModal() { document.getElementById('modal').classList.add('hidden'); }
-        function syncToFirebase() { fbSet(fbRef(fbDb, 'data_aplikasi'), db); }
-        function loadFromFirebase() { fbGet(fbChild(fbRef(fbDb), 'data_aplikasi')).then(snap => { if(snap.exists()) { db = snap.val(); renderDashboard(); } }); }
+
+        function saveData() {
+            const form = document.getElementById('data-form');
+            if(!form.checkValidity()) {
+                form.reportValidity();
+                return;
+            }
+
+            const formData = new FormData(form);
+            let isNewInput = (editIndex === -1);
+
+            // LOGIKA SAVE MASTER-DETAIL TRANSAKSI
+            if(currentSection === 'transaksi') {
+                let tgl = formData.get('Tanggal');
+                let docVal = formData.get('No Doc') || generateUniqueDocCode();
+                let tipe = formData.get('Tipe Transaksi');
+                let asal = formData.get('Gudang Asal');
+                let tujuan = formData.get('Gudang Tujuan');
+                let proj = formData.get('Kode Project');
+                let petugas = formData.get('Petugas');
+                let ket = formData.get('Keterangan');
+
+                // Mengambil nilai array dari baris tabel
+                let kats = formData.getAll('Kategori[]');
+                let jens = formData.getAll('Jenis[]');
+                let kbs = formData.getAll('Kode Barang[]');
+                let nbs = formData.getAll('Nama Barang (Auto)[]');
+                let jmls = formData.getAll('Jumlah[]');
+
+                if (kats.length === 0) {
+                    alert("Minimal harus ada 1 barang dalam transaksi!");
+                    return;
+                }
+
+                let newItems = [];
+                for(let i = 0; i < kats.length; i++){
+                    // Pembuatan ID Transaksi Unik per baris
+                    let newIdAuto = 'TX-' + Date.now().toString().slice(-4) + Math.floor(Math.random() * 100);
+                    
+                    newItems.push({
+                        "ID (Auto)": isNewInput ? newIdAuto : db.transaksi[editIndex]['ID (Auto)'],
+                        "Tanggal": tgl,
+                        "No Doc": docVal,
+                        "Tipe Transaksi": tipe,
+                        "Gudang Asal": asal,
+                        "Gudang Tujuan": tujuan,
+                        "Kode Project": proj,
+                        "Kategori": kats[i],
+                        "Jenis": jens[i],
+                        "Kode Barang": kbs[i],
+                        "Nama Barang (Auto)": nbs[i],
+                        "Jumlah": parseInt(jmls[i] || 0),
+                        "Petugas": petugas,
+                        "Keterangan": ket
+                    });
+                }
+
+                if (isNewInput) {
+                    db.transaksi.push(...newItems); // Push beberapa baris sekaligus
+                } else {
+                    db.transaksi[editIndex] = newItems[0]; // Update satu baris terpilih
+                }
+            } 
+            // LOGIKA SAVE MASTER LAINNYA
+            else {
+                let newItem = {};
+                for (let [key, value] of formData.entries()) { newItem[key] = value; }
+                if (isNewInput) db[currentSection].push(newItem);
+                else db[currentSection][editIndex] = newItem;
+            }
+
+            saveToLocal();
+            syncToFirebase();
+            
+            if (isNewInput) {
+                let lanjut = confirm("Data berhasil disimpan! Apakah Anda ingin lanjut Input Baru?");
+                if (lanjut) openModal(-1);
+                else { closeModal(); renderDashboard(); }
+            } else {
+                closeModal();
+                renderDashboard();
+            }
+        }           
+        
+        function syncToFirebase() {
+            const dbRef = fbRef(fbDb, 'data_aplikasi');
+            fbSet(dbRef, db).then(() => {
+                console.log("Data berhasil tersimpan di Firebase!");
+            }).catch((error) => {
+                console.error("Gagal simpan ke Firebase:", error);
+            });
+        }
+
+        function loadFromFirebase() {
+            fbGet(fbChild(fbRef(fbDb), 'data_aplikasi')).then((snapshot) => {
+                if (snapshot.exists()) {
+                    db = snapshot.val();
+                    renderDashboard(); 
+                } else {
+                    console.log("Tidak ada data di Firebase, menggunakan data awal.");
+                }
+            });
+        }
         
         renderDashboard();
     </script>
