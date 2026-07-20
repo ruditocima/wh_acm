@@ -105,24 +105,11 @@
         function saveToLocal() { localStorage.setItem('wms_app_data', JSON.stringify(db)); }
 
         function deleteData(index) {
-            // Ambil nomor dokumen dari baris yang dipilih
-            let targetDoc = db[currentSection][index]['No Doc'];
-            
-            if(currentSection === 'transaksi') {
-                if(confirm(`Yakin ingin menghapus SELURUH data dengan No Doc: ${targetDoc}?`)) {
-                    // Hapus semua baris yang memiliki No Doc yang sama
-                    db.transaksi = db.transaksi.filter(x => x['No Doc'] !== targetDoc);
-                    saveToLocal();
-                    syncToFirebase();
-                    renderTable(currentSection);
-                }
-            } else {
-                if(confirm("Yakin ingin menghapus data ini?")) {
-                    db[currentSection].splice(index, 1);
-                    saveToLocal();
-                    syncToFirebase();
-                    renderTable(currentSection);
-                }
+            if(confirm("Yakin ingin menghapus data ini?")) {
+                db[currentSection].splice(index, 1);
+                saveToLocal();
+                syncToFirebase();
+                renderTable(currentSection);
             }
         }
 
@@ -598,7 +585,8 @@
             if(!btnPdf) {
                 btnPdf = document.createElement('button');
                 btnPdf.id = 'btn-print-pdf';
-                btnPdf.className = "px-4 py-2 bg-red-600 text-white rounded hover:bg-red-500 text-[9pt] hidden mr-2";
+                btnPdf.className = "px-4 py-2 bg-red-600 text-white rounded hover:bg-red-500 text-[9pt] hidden";
+                btnPdf.innerText = "Print PDF";
                 document.getElementById('btn-save').parentNode.insertBefore(btnPdf, document.getElementById('btn-save'));
             }
             
@@ -612,7 +600,6 @@
             if (currentSection === 'transaksi') {
                 if (index !== -1) {
                     btnPdf.classList.remove('hidden');
-                    btnPdf.innerText = "Print PDF";
                     btnPdf.onclick = function() { printNotaPDF(db.transaksi[index]); };
                 } else {
                     btnPdf.classList.add('hidden');
@@ -699,9 +686,7 @@
                 if (index === -1) {
                     addTransactionRow();
                 } else {
-                    // AMBIL SEMUA BARANG YANG PUNYA NO DOC SAMA UNTUK DIEDIT
-                    let allItems = db.transaksi.filter(x => x['No Doc'] === item['No Doc']);
-                    allItems.forEach(i => addTransactionRow(i));
+                    addTransactionRow(item); 
                 }
                 return;
             }
@@ -723,139 +708,90 @@
             });
             document.getElementById('modal').classList.remove('hidden');
         }
+
         function closeModal() { document.getElementById('modal').classList.add('hidden'); }
 
-        function openModal(index) {
-            editIndex = index;
-            document.getElementById('btn-save').classList.remove('hidden');
-            let btnPdf = document.getElementById('btn-print-pdf');
-            if(!btnPdf) {
-                btnPdf = document.createElement('button');
-                btnPdf.id = 'btn-print-pdf';
-                btnPdf.className = "px-4 py-2 bg-red-600 text-white rounded hover:bg-red-500 text-[9pt] hidden mr-2";
-                document.getElementById('btn-save').parentNode.insertBefore(btnPdf, document.getElementById('btn-save'));
-            }
-            
+        function saveData() {
             const form = document.getElementById('data-form');
-            form.innerHTML = '';
-            
-            const item = index === -1 ? {} : db[currentSection][index];
-            document.getElementById('modal-title').innerText = index === -1 ? 'Tambah Data' : 'Edit Data';
-
-            // JIKA TRANSAKSI: GUNAKAN MODE MASTER-DETAIL
-            if (currentSection === 'transaksi') {
-                if (index !== -1) {
-                    btnPdf.classList.remove('hidden');
-                    btnPdf.innerText = "Print PDF";
-                    btnPdf.onclick = function() { printNotaPDF(db.transaksi[index]); };
-                } else {
-                    btnPdf.classList.add('hidden');
-                }
-
-                form.className = "text-[9pt]";
-                let dateVal = item['Tanggal'] || new Date().toISOString().split('T')[0];
-                let docVal = item['No Doc'] || generateUniqueDocCode(dateVal);
-
-                let headerHTML = `
-                    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4 bg-gray-50 p-4 rounded border">
-                        <div>
-                            <label class="block text-[8pt] font-medium text-gray-700 mb-1">Tanggal</label>
-                            <input type="date" name="Tanggal" value="${dateVal}" onchange="onTanggalChange(this.value)" class="w-full border p-1.5 rounded text-[8pt]" required>
-                        </div>
-                        <div>
-                            <label class="block text-[8pt] font-medium text-gray-700 mb-1">No Doc</label>
-                            <input type="text" name="No Doc" value="${docVal}" class="w-full border p-1.5 rounded text-[8pt] bg-white font-bold text-indigo-700" readonly required>
-                        </div>
-                        <div>
-                            <label class="block text-[8pt] font-medium text-gray-700 mb-1">Tipe Transaksi</label>
-                            <select name="Tipe Transaksi" class="w-full border p-1.5 rounded text-[8pt]">
-                                <option value="Masuk" ${item['Tipe Transaksi'] === 'Masuk' ? 'selected' : ''}>Masuk</option>
-                                <option value="Keluar" ${item['Tipe Transaksi'] === 'Keluar' ? 'selected' : ''}>Keluar</option>
-                                <option value="Transfer" ${item['Tipe Transaksi'] === 'Transfer' ? 'selected' : ''}>Transfer</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label class="block text-[8pt] font-medium text-gray-700 mb-1">Kode Project</label>
-                            <select name="Kode Project" class="w-full border p-1.5 rounded text-[8pt]">
-                                <option value="">-- Pilih --</option>
-                                ${db.project.map(p => `<option value="${p['Kode Project']}" ${item['Kode Project'] === p['Kode Project'] ? 'selected' : ''}>${p['Kode Project']} - ${p['Nama Project']}</option>`).join('')}
-                            </select>
-                        </div>
-                        <div>
-                            <label class="block text-[8pt] font-medium text-gray-700 mb-1">Gudang Asal</label>
-                            <select name="Gudang Asal" class="w-full border p-1.5 rounded text-[8pt]">
-                                <option value="">-- Pilih --</option>
-                                ${db.gudang.map(g => `<option value="${g['Kode Gudang']}" ${item['Gudang Asal'] === g['Kode Gudang'] ? 'selected' : ''}>${g['Nama Gudang']}</option>`).join('')}
-                            </select>
-                        </div>
-                        <div>
-                            <label class="block text-[8pt] font-medium text-gray-700 mb-1">Gudang Tujuan</label>
-                            <select name="Gudang Tujuan" class="w-full border p-1.5 rounded text-[8pt]">
-                                <option value="">-- Pilih --</option>
-                                ${db.gudang.map(g => `<option value="${g['Kode Gudang']}" ${item['Gudang Tujuan'] === g['Kode Gudang'] ? 'selected' : ''}>${g['Nama Gudang']}</option>`).join('')}
-                            </select>
-                        </div>
-                        <div>
-                            <label class="block text-[8pt] font-medium text-gray-700 mb-1">Petugas</label>
-                            <input type="text" name="Petugas" value="${item['Petugas'] || ''}" class="w-full border p-1.5 rounded text-[8pt]">
-                        </div>
-                        <div>
-                            <label class="block text-[8pt] font-medium text-gray-700 mb-1">Keterangan</label>
-                            <input type="text" name="Keterangan" value="${item['Keterangan'] || ''}" class="w-full border p-1.5 rounded text-[8pt]">
-                        </div>
-                    </div>
-                    
-                    <div class="border-t pt-3">
-                        <div class="flex justify-between items-center mb-2">
-                            <h3 class="font-bold text-[10pt] text-gray-700">Detail Material</h3>
-                            <button type="button" onclick="addTransactionRow()" class="bg-indigo-600 text-white px-3 py-1.5 rounded hover:bg-indigo-500 text-[8pt] font-medium">+ Tambah Baris Material</button>
-                        </div>
-                        <div class="overflow-x-auto">
-                            <table class="w-full text-left border-collapse border border-gray-300 table-compact">
-                                <thead class="bg-gray-200">
-                                    <tr>
-                                        <th class="border p-1.5 text-[8pt]">Kategori</th>
-                                        <th class="border p-1.5 text-[8pt]">Jenis</th>
-                                        <th class="border p-1.5 text-[8pt] w-1/4">Kode Barang</th>
-                                        <th class="border p-1.5 text-[8pt]">Nama Barang</th>
-                                        <th class="border p-1.5 text-[8pt] w-20 text-center">Qty</th>
-                                        <th class="border p-1.5 text-[8pt] w-10 text-center">Aksi</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="item-tbody"></tbody>
-                            </table>
-                        </div>
-                    </div>
-                `;
-                form.innerHTML = headerHTML;
-                document.getElementById('modal').classList.remove('hidden');
-
-                if (index === -1) {
-                    addTransactionRow();
-                } else {
-                    // AMBIL SEMUA BARANG YANG PUNYA NO DOC SAMA UNTUK DIEDIT
-                    let allItems = db.transaksi.filter(x => x['No Doc'] === item['No Doc']);
-                    allItems.forEach(i => addTransactionRow(i));
-                }
+            if(!form.checkValidity()) {
+                form.reportValidity();
                 return;
             }
 
-            // JIKA BUKAN TRANSAKSI: BENTUK FORM DEFAULT
-            btnPdf.classList.add('hidden');
-            form.className = "grid grid-cols-2 gap-4 text-[9pt]";
-            let keys = currentSection === 'barang' ? ['Kategori', 'Jenis', 'Kode Barang', 'Nama Barang'] : (db[currentSection].length > 0 ? Object.keys(db[currentSection][0]) : []);
+            const formData = new FormData(form);
+            let isNewInput = (editIndex === -1);
 
-            keys.forEach(key => {
-                let inputHtml = '';
-                if (currentSection === 'project' && key === 'Kode Project') {
-                    let initialCode = item[key] || (index === -1 ? generateProjectCode() : '');
-                    inputHtml = `<input type="text" name="${key}" value="${initialCode}" class="w-full border p-2 rounded bg-gray-100 cursor-not-allowed text-[9pt]" readonly required>`;
-                } else {
-                    inputHtml = `<input type="text" name="${key}" value="${item[key] || ''}" class="w-full border p-2 rounded text-[9pt]" required>`;
+            // LOGIKA SAVE MASTER-DETAIL TRANSAKSI
+            if(currentSection === 'transaksi') {
+                let tgl = formData.get('Tanggal');
+                let docVal = formData.get('No Doc'); // Gunakan yang sudah di generate
+                let tipe = formData.get('Tipe Transaksi');
+                let asal = formData.get('Gudang Asal');
+                let tujuan = formData.get('Gudang Tujuan');
+                let proj = formData.get('Kode Project');
+                let petugas = formData.get('Petugas');
+                let ket = formData.get('Keterangan');
+
+                // Mengambil nilai array dari baris tabel
+                let kats = formData.getAll('Kategori[]');
+                let jens = formData.getAll('Jenis[]');
+                let kbs = formData.getAll('Kode Barang[]');
+                let nbs = formData.getAll('Nama Barang (Auto)[]');
+                let jmls = formData.getAll('Jumlah[]');
+
+                if (kats.length === 0) {
+                    alert("Minimal harus ada 1 barang dalam transaksi!");
+                    return;
                 }
-                form.innerHTML += `<div><label class="block text-[9pt] font-medium mb-1 text-gray-700">${key}</label>${inputHtml}</div>`;
-            });
-            document.getElementById('modal').classList.remove('hidden');
+
+                let newItems = [];
+                for(let i = 0; i < kats.length; i++){
+                    // Pembuatan ID Transaksi Unik per baris
+                    let newIdAuto = 'TX-' + Date.now().toString().slice(-4) + Math.floor(Math.random() * 100);
+                    
+                    newItems.push({
+                        "ID (Auto)": isNewInput ? newIdAuto : db.transaksi[editIndex]['ID (Auto)'],
+                        "Tanggal": tgl,
+                        "No Doc": docVal,
+                        "Tipe Transaksi": tipe,
+                        "Gudang Asal": asal,
+                        "Gudang Tujuan": tujuan,
+                        "Kode Project": proj,
+                        "Kategori": kats[i],
+                        "Jenis": jens[i],
+                        "Kode Barang": kbs[i],
+                        "Nama Barang (Auto)": nbs[i],
+                        "Jumlah": parseInt(jmls[i] || 0),
+                        "Petugas": petugas,
+                        "Keterangan": ket
+                    });
+                }
+
+                if (isNewInput) {
+                    db.transaksi.push(...newItems); 
+                } else {
+                    db.transaksi[editIndex] = newItems[0]; 
+                }
+            } 
+            // LOGIKA SAVE MASTER LAINNYA
+            else {
+                let newItem = {};
+                for (let [key, value] of formData.entries()) { newItem[key] = value; }
+                if (isNewInput) db[currentSection].push(newItem);
+                else db[currentSection][editIndex] = newItem;
+            }
+
+            saveToLocal();
+            syncToFirebase();
+            
+            if (isNewInput) {
+                let lanjut = confirm("Data berhasil disimpan! Apakah Anda ingin lanjut Input Baru?");
+                if (lanjut) openModal(-1);
+                else { closeModal(); renderDashboard(); }
+            } else {
+                closeModal();
+                renderDashboard();
+            }
         }           
         
         function syncToFirebase() {
