@@ -185,9 +185,9 @@
                     "No Doc": "ACM-NPM-VII-2026-001", 
                     "ID DO-TO": "TX-001", 
                     "Tipe Transaksi": "Masuk", 
+                    "Kode Project": "PRJ-001",
                     "Gudang Asal": "", 
                     "Gudang Tujuan": "GDG-01", 
-                    "Kode Project": "PRJ-001", 
                     "Kategori": "Material", 
                     "Jenis": "Besi", 
                     "Kode Barang": "BRG-001", 
@@ -436,7 +436,8 @@
             if (data.length > 0) {
                 let keys = Object.keys(data[0]);
                 if (section === 'transaksi') {
-                    keys = ['Tanggal', 'No Doc', 'ID DO-TO', ...keys.filter(k => k !== 'Tanggal' && k !== 'No Doc' && k !== 'ID DO-TO')];
+                    // Menyusun urutan kolom transaksi: Tanggal, No Doc, ID DO-TO, Tipe Transaksi, Kode Project, Gudang Asal, Gudang Tujuan, Kategori, Jenis, Kode Barang, Nama Barang (Auto), lalu sisanya
+                    keys = ['Tanggal', 'No Doc', 'ID DO-TO', 'Tipe Transaksi', 'Kode Project', 'Gudang Asal', 'Gudang Tujuan', 'Kategori', 'Jenis', 'Kode Barang', 'Nama Barang (Auto)', ...keys.filter(k => k !== 'Tanggal' && k !== 'No Doc' && k !== 'ID DO-TO' && k !== 'Tipe Transaksi' && k !== 'Kode Project' && k !== 'Gudang Asal' && k !== 'Gudang Tujuan' && k !== 'Kategori' && k !== 'Jenis' && k !== 'Kode Barang' && k !== 'Nama Barang (Auto)')];
                 }
 
                 keys.forEach(k => html += `<th class="border text-[9pt] font-bold uppercase text-gray-600">${k}</th>`);
@@ -459,7 +460,7 @@
             } else {
                 let defaultKeys = [];
                 if(section === 'barang') defaultKeys = ["Kategori", "Jenis", "Kode Barang", "Nama Barang"];
-                else if(section === 'transaksi') defaultKeys = ["Tanggal", "No Doc", "ID DO-TO", "Tipe Transaksi", "Gudang Asal", "Gudang Tujuan", "Kode Project", "Kategori", "Jenis", "Kode Barang", "Nama Barang (Auto)", "Jumlah", "Petugas", "Keterangan"];
+                else if(section === 'transaksi') defaultKeys = ["Tanggal", "No Doc", "ID DO-TO", "Tipe Transaksi", "Kode Project", "Gudang Asal", "Gudang Tujuan", "Kategori", "Jenis", "Kode Barang", "Nama Barang (Auto)", "Jumlah", "Petugas", "Keterangan"];
                 else if(section === 'gudang') defaultKeys = ["Kode Gudang", "Nama Gudang"];
                 else if(section === 'project') defaultKeys = ["Kode Project", "Nama Project"];
 
@@ -969,9 +970,9 @@
                         "No Doc": docVal,
                         "ID DO-TO": idDoTo,
                         "Tipe Transaksi": tipe,
+                        "Kode Project": proj,
                         "Gudang Asal": asal,
                         "Gudang Tujuan": tujuan,
-                        "Kode Project": proj,
                         "Kategori": kats[i],
                         "Jenis": jens[i],
                         "Kode Barang": kbs[i],
