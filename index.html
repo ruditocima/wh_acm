@@ -38,14 +38,18 @@
     const appSection = document.getElementById('app-section');
     const userEmailText = document.getElementById('user-email-text');
 
-    if (user) {
-      loginSection.classList.add('hidden');
-      appSection.classList.remove('hidden');
-      if (userEmailText) userEmailText.innerText = user.email;
-      
-      // Ambil data dari Firebase saat berhasil login
-      window.loadFromFirebase();
-    } else {
+      if (user) {
+  loginSection.classList.add('hidden');
+  appSection.classList.remove('hidden');
+  if (userEmailText) {
+    // Menampilkan Nama (jika ada di akun Firebase), 
+    // jika belum di-set nama akunnya, otomatis mengambil teks sebelum tanda '@' (misal: rudi20101979)
+    const userName = user.displayName || user.email.split('@')[0];
+    userEmailText.innerText = userName;
+  }
+  window.loadFromFirebase();
+}
+     else {
       loginSection.classList.remove('hidden');
       appSection.classList.add('hidden');
     }
@@ -138,7 +142,7 @@
         <header class="sticky top-0 z-50 bg-indigo-900 text-white p-6 rounded-t-xl shadow-lg flex justify-between items-center">
             <div>
                 <h1 class="text-2xl font-bold">Warehouse Management System</h1>
-                <p class="text-xs text-indigo-200 mt-0.5">User: <span id="user-email-text" class="font-semibold"></span></p>
+                <p class="text-xs text-indigo-200 mt-0.5">Selamat Datang : <span id="user-email-text" class="font-semibold"></span></p>
             </div>
             <div class="flex items-center space-x-2">
                 <button onclick="renderDashboard()" class="bg-indigo-700 hover:bg-indigo-600 px-4 py-2 rounded text-[9pt] transition">Dashboard</button>
