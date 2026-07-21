@@ -389,6 +389,18 @@
                     if (jenisA > jenisB) return 1;
                     return 0;
                 });
+            } else if (section === 'project') {
+                db[section].sort((a, b) => {
+                    let codeA = (a['Kode Project'] || "").toLowerCase();
+                    let codeB = (b['Kode Project'] || "").toLowerCase();
+                    return codeA.localeCompare(codeB);
+                });
+            } else if (section === 'gudang') {
+                db[section].sort((a, b) => {
+                    let codeA = (a['Kode Gudang'] || "").toLowerCase();
+                    let codeB = (b['Kode Gudang'] || "").toLowerCase();
+                    return codeA.localeCompare(codeB);
+                });
             }
             
             let data = db[section];
@@ -431,7 +443,7 @@
                     Object.values(item).forEach(v => html += `<td class="border text-[9pt] text-gray-800">${v}</td>`);
                     
                     let aksi = `<button onclick="openModal(${originalIndex})" class="text-blue-600 hover:underline text-[9pt] font-bold">Edit</button>`;
-                    if (section === 'barang' || section === 'transaksi') {
+                    if (section === 'barang' || section === 'transaksi' || section === 'gudang' || section === 'project') {
                         aksi += ` | <button onclick="deleteData(${originalIndex})" class="text-red-600 hover:underline text-[9pt] font-bold">Hapus</button>`;
                     }
                     html += `<td class="border">${aksi}</td></tr>`;
@@ -450,19 +462,6 @@
             document.getElementById('main-content').innerHTML = html;
         }
 
-        function generateProjectCode() {
-            if (!db.project || db.project.length === 0) return 'PRJ-001';
-            let maxNum = 0;
-            db.project.forEach(p => {
-                let code = p['Kode Project'];
-                if (code && code.startsWith('PRJ-')) {
-                    let num = parseInt(code.replace('PRJ-', ''), 10);
-                    if (!isNaN(num) && num > maxNum) maxNum = num;
-                }
-            });
-            return 'PRJ-' + (maxNum + 1).toString().padStart(3, '0');
-        }
-        
         function getRomanMonth(date) {
             const months = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"];
             return months[date.getMonth()];
@@ -661,7 +660,7 @@
                         else if(t['Tipe Transaksi'] === 'Transfer') {
                             if(t['Gudang Tujuan'] === selectedGudang) effectiveJml = jml;
                             else if(t['Gudang Asal'] === selectedGudang) effectiveJml = -jml;
-                            else if(selectedGudang === "") effectiveJml = 0; // or handle general transfer view if needed
+                            else if(selectedGudang === "") effectiveJml = 0;
                         }
                         
                         if (effectiveJml !== 0 || selectedGudang === "") {
@@ -915,13 +914,7 @@
             let keys = currentSection === 'barang' ? ['Kategori', 'Jenis', 'Kode Barang', 'Nama Barang'] : (db[currentSection] && db[currentSection].length > 0 ? Object.keys(db[currentSection][0]) : []);
 
             keys.forEach(key => {
-                let inputHtml = '';
-                if (currentSection === 'project' && key === 'Kode Project') {
-                    let initialCode = item[key] || (index === -1 ? generateProjectCode() : '');
-                    inputHtml = `<input type="text" name="${key}" value="${initialCode}" class="w-full border p-2 rounded bg-gray-100 cursor-not-allowed text-[9pt]" readonly required>`;
-                } else {
-                    inputHtml = `<input type="text" name="${key}" value="${item[key] || ''}" class="w-full border p-2 rounded text-[9pt]" required>`;
-                }
+                let inputHtml = `<input type="text" name="${key}" value="${item[key] || ''}" class="w-full border p-2 rounded text-[9pt]" required>`;
                 form.innerHTML += `<div><label class="block text-[9pt] font-medium mb-1 text-gray-700">${key}</label>${inputHtml}</div>`;
             });
             document.getElementById('modal').classList.remove('hidden');
