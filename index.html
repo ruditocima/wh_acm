@@ -42,10 +42,9 @@
   loginSection.classList.add('hidden');
   appSection.classList.remove('hidden');
   if (userEmailText) {
-    // Menampilkan Nama (jika ada di akun Firebase), 
-    // jika belum di-set nama akunnya, otomatis mengambil teks sebelum tanda '@' (misal: rudi20101979)
-    const userName = user.displayName || user.email.split('@')[0];
-    userEmailText.innerText = userName;
+   
+    const userName = user.email.split('@')[0].toUpperCase();
+        userEmailText.innerText = userName;
   }
   window.loadFromFirebase();
 }
