@@ -986,13 +986,12 @@
 
         if (!db.transaksi) db.transaksi = [];
         
-        // ================= PERUBAHAN DI SINI =================
         if (isNewInput) {
             db.transaksi.push(...newItems); 
         } else {
-            // Hapus semua transaksi lama yang memiliki No Doc yang sama
+            // Hapus semua transaksi lama ber-No Doc sama
             db.transaksi = db.transaksi.filter(t => t['No Doc'] !== docVal);
-            // Masukkan kembali sekumpulan item transaksi yang baru di-edit
+            // Masukkan transaksi baru
             db.transaksi.push(...newItems);
         }
     } 
@@ -1007,18 +1006,18 @@
     saveToLocal();
     syncToFirebase();
     
-if (isNewInput) {
+    if (isNewInput) {
         let lanjut = confirm("Data berhasil disimpan! Apakah Anda ingin lanjut Input Baru?");
         if (lanjut) openModal(-1);
         else { 
             closeModal(); 
-            renderTable(currentSection); // Mengembalikan tampilan ke tabel tempat Anda mengedit
+            renderTable(currentSection); 
         }
     } else {
         closeModal();
-        renderTable(currentSection); // Mengembalikan tampilan ke tabel tempat Anda mengedit
+        renderTable(currentSection); 
     }
-}    
+}
 </script>
 </body>
 </html>
