@@ -39,16 +39,14 @@
     const userEmailText = document.getElementById('user-email-text');
 
       if (user) {
-  loginSection.classList.add('hidden');
-  appSection.classList.remove('hidden');
-  if (userEmailText) {
-    // Menampilkan Nama (jika ada di akun Firebase), 
-    // jika belum di-set nama akunnya, otomatis mengambil teks sebelum tanda '@' (misal: rudi20101979)
-    const userName = user.displayName || user.email.split('@')[0];
-    userEmailText.innerText = userName;
-  }
-  window.loadFromFirebase();
-}
+        loginSection.classList.add('hidden');
+        appSection.classList.remove('hidden');
+        if (userEmailText) {
+          const userName = user.displayName || user.email.split('@')[0];
+          userEmailText.innerText = userName;
+        }
+        window.loadFromFirebase();
+      }
      else {
       loginSection.classList.remove('hidden');
       appSection.classList.add('hidden');
@@ -98,7 +96,6 @@
       } else {
         console.log("Belum ada data di Firebase, menggunakan data awal.");
       }
-      // Render ulang UI setelah data diterima
       if (typeof renderDashboard === 'function') {
         renderDashboard();
       }
@@ -202,12 +199,10 @@
             ]
         };
         
-        // Inisialisasi window.db
         if (!window.db) {
             window.db = JSON.parse(localStorage.getItem('wms_app_data')) || initialData;
         }
 
-        // Trik agar variabel 'db' selalu dinamis merujuk ke 'window.db' terbaru
         Object.defineProperty(window, 'db', {
             get() { return window._db_data || JSON.parse(localStorage.getItem('wms_app_data')) || initialData; },
             set(val) { window._db_data = val; }
@@ -875,7 +870,16 @@
                 if (index === -1) {
                     addTransactionRow();
                 } else {
-                    addTransactionRow(item); 
+                    // Cari semua item barang yang memiliki No Doc sama
+                    let sameDocItems = (db.transaksi || []).filter(t => t['No Doc'] === item['No Doc']);
+                    
+                    if (sameDocItems.length > 0) {
+                        sameDocItems.forEach(docItem => {
+                            addTransactionRow(docItem);
+                        });
+                    } else {
+                        addTransactionRow(item);
+                    }
                 }
                 return;
             }
@@ -952,10 +956,14 @@
                 }
 
                 if (!db.transaksi) db.transaksi = [];
+                
                 if (isNewInput) {
                     db.transaksi.push(...newItems); 
                 } else {
-                    db.transaksi[editIndex] = newItems[0]; 
+                    // Filter / Hapus semua record lama dengan No Doc yang sama
+                    db.transaksi = db.transaksi.filter(t => t['No Doc'] !== docVal);
+                    // Masukkan seluruh record baru
+                    db.transaksi.push(...newItems);
                 }
             } 
             else {
@@ -972,10 +980,13 @@
             if (isNewInput) {
                 let lanjut = confirm("Data berhasil disimpan! Apakah Anda ingin lanjut Input Baru?");
                 if (lanjut) openModal(-1);
-                else { closeModal(); renderDashboard(); }
+                else { 
+                    closeModal(); 
+                    renderTable(currentSection); 
+                }
             } else {
                 closeModal();
-                renderDashboard();
+                renderTable(currentSection); 
             }
         }
     </script>
