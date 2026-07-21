@@ -513,6 +513,53 @@
             }
         }
 
+        function onTipeTransaksiChange() {
+            // Reset pilihan baris item saat tipe transaksi diubah agar daftar kode barang terfilter ulang
+            const tbody = document.getElementById('item-tbody');
+            if (tbody) {
+                tbody.innerHTML = '';
+                addTransactionRow();
+            }
+        }
+
+        function getAvailableStockByCode() {
+            const tipeTransaksi = document.querySelector('select[name="Tipe Transaksi"]')?.value || 'Masuk';
+            const selectedGudangAsal = document.querySelector('select[name="Gudang Asal"]')?.value || '';
+            
+            // Jika tipe transaksi 'Masuk', semua barang boleh dipilih
+            if (tipeTransaksi === 'Masuk') return null;
+
+            // Hitung sisa stok per kode barang berdasarkan transaksi yang sudah ada
+            let stockMap = {};
+            (db.transaksi || []).forEach(t => {
+                let kode = t['Kode Barang'];
+                if (!kode) return;
+                let jml = parseInt(t['Jumlah'] || 0);
+
+                if (!stockMap[kode]) stockMap[kode] = 0;
+
+                if (t['Tipe Transaksi'] === 'Masuk') {
+                    if (selectedGudangAsal === "" || t['Gudang Tujuan'] === selectedGudangAsal) {
+                        stockMap[kode] += jml;
+                    }
+                } else if (t['Tipe Transaksi'] === 'Keluar') {
+                    if (selectedGudangAsal === "" || t['Gudang Asal'] === selectedGudangAsal) {
+                        stockMap[kode] -= jml;
+                    }
+                } else if (t['Tipe Transaksi'] === 'Transfer') {
+                    if (selectedGudangAsal !== "") {
+                        if (t['Gudang Asal'] === selectedGudangAsal) stockMap[kode] -= jml;
+                        if (t['Gudang Tujuan'] === selectedGudangAsal) stockMap[kode] += jml;
+                    } else {
+                        // Jika gudang asal kosong pada transfer umum, asumsikan netral atau kurangi jika keluar
+                        stockMap[kode] -= jml; 
+                    }
+                }
+            });
+
+            return stockMap;
+        }
+
         function addTransactionRow(item = {}) {
             let tr = document.createElement('tr');
             
@@ -585,7 +632,20 @@
             namaInput.value = '';
 
             if (jenisVal && kategoriVal) {
-                let filteredBarang = (db.barang || []).filter(b => b['Kategori'] === kategoriVal && b['Jenis'] === jenisVal);
+                let stockMap = getAvailableStockByCode(); // Mengambil peta stok sisa
+
+                let filteredBarang = (db.barang || []).filter(b => {
+                    if (b['Kategori'] !== kategoriVal || b['Jenis'] !== jenisVal) return false;
+                    
+                    // Jika tipe transaksi adalah Keluar/Transfer, saring barang dengan stok <= 0
+                    if (stockMap !== null) {
+                        let currentSisa = stockMap[b['Kode Barang']] || 0;
+                        // Izinkan juga jika item ini sedang diedit (ada dalam item lama form)
+                        if (currentSisa <= 0) return false;
+                    }
+                    return true;
+                });
+
                 filteredBarang.forEach(b => {
                     kodeSelect.innerHTML += `<option value="${b['Kode Barang']}" ${preselectKode === b['Kode Barang'] ? 'selected' : ''}>${b['Kode Barang']} - ${b['Nama Barang']}</option>`;
                 });
@@ -867,7 +927,7 @@
                         </div>
                         <div>
                             <label class="block text-[8pt] font-medium text-gray-700 mb-1">Tipe Transaksi</label>
-                            <select name="Tipe Transaksi" class="w-full border p-1.5 rounded text-[8pt]">
+                            <select name="Tipe Transaksi" onchange="onTipeTransaksiChange()" class="w-full border p-1.5 rounded text-[8pt]">
                                 <option value="Masuk" ${item['Tipe Transaksi'] === 'Masuk' ? 'selected' : ''}>Masuk</option>
                                 <option value="Keluar" ${item['Tipe Transaksi'] === 'Keluar' ? 'selected' : ''}>Keluar</option>
                                 <option value="Transfer" ${item['Tipe Transaksi'] === 'Transfer' ? 'selected' : ''}>Transfer</option>
@@ -882,7 +942,7 @@
                         </div>
                         <div>
                             <label class="block text-[8pt] font-medium text-gray-700 mb-1">Gudang Asal</label>
-                            <select name="Gudang Asal" class="w-full border p-1.5 rounded text-[8pt]">
+                            <select name="Gudang Asal" onchange="onTipeTransaksiChange()" class="w-full border p-1.5 rounded text-[8pt]">
                                 <option value="">-- Pilih --</option>
                                 ${(db.gudang || []).map(g => `<option value="${g['Kode Gudang']}" ${item['Gudang Asal'] === g['Kode Gudang'] ? 'selected' : ''}>${g['Nama Gudang']}</option>`).join('')}
                             </select>
