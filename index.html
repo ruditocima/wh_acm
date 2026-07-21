@@ -184,7 +184,7 @@
                     "Tanggal": "2026-07-16", 
                     "No Doc": "ACM-NPM-VII-2026-001", 
                     "ID DO-TO": "TX-001", 
-                    "Trans": "Masuk", 
+                    "Tipe Transaksi": "Masuk", 
                     "Gudang Asal": "", 
                     "Gudang Tujuan": "GDG-01", 
                     "Kode Project": "PRJ-001", 
@@ -236,6 +236,10 @@
             
             let allItems = db.transaksi.filter(x => x['No Doc'] === t['No Doc']);
             
+            let gdgAsal = db.gudang.find(g => g['Kode Gudang'] === t['Gudang Asal'])?.['Nama Gudang'] || '-';
+            let gdgTujuan = db.gudang.find(g => g['Kode Gudang'] === t['Gudang Tujuan'])?.['Nama Gudang'] || '-';
+            let nmProyek = db.project.find(p => p['Kode Project'] === t['Kode Project'])?.['Nama Project'] || '-';
+
             doc.setFont("helvetica", "normal"); 
             doc.setFontSize(12); 
             doc.text("NOTA PERMINTAAN MATERIAL", 40, 60);
@@ -245,7 +249,6 @@
             doc.setFontSize(8); 
             doc.text(`No. Doc : ${t['No Doc'] || '-'}`, 40, 95);
             doc.text(`ID DO-TO: ${t['ID DO-TO'] || '-'}`, 40, 110);
-            doc.text(`Trans   : ${t['Trans'] || '-'}`, 200, 95);
             
             doc.text(`Tanggal : ${t['Tanggal'] || '-'}`, 550, 95, { align: 'right' });
 
@@ -318,9 +321,9 @@
                 if(!rekap[nama]) rekap[nama] = { masuk: 0, keluar: 0, t_masuk: 0, t_keluar: 0 };
                 let isGudangRelevant = (selectedGudang === "" || t['Gudang Asal'] === selectedGudang || t['Gudang Tujuan'] === selectedGudang);
                 if(isGudangRelevant) {
-                    if(t['Trans'] === 'Masuk' && (selectedGudang === "" || t['Gudang Tujuan'] === selectedGudang)) rekap[nama].masuk += jml;
-                    if(t['Trans'] === 'Keluar' && (selectedGudang === "" || t['Gudang Asal'] === selectedGudang)) rekap[nama].keluar += jml;
-                    if(t['Trans'] === 'Transfer') {
+                    if(t['Tipe Transaksi'] === 'Masuk' && (selectedGudang === "" || t['Gudang Tujuan'] === selectedGudang)) rekap[nama].masuk += jml;
+                    if(t['Tipe Transaksi'] === 'Keluar' && (selectedGudang === "" || t['Gudang Asal'] === selectedGudang)) rekap[nama].keluar += jml;
+                    if(t['Tipe Transaksi'] === 'Transfer') {
                         if(t['Gudang Tujuan'] === selectedGudang || selectedGudang === "") rekap[nama].t_masuk += jml;
                         if(t['Gudang Asal'] === selectedGudang || selectedGudang === "") rekap[nama].t_keluar += jml;
                     }
@@ -433,7 +436,7 @@
             if (data.length > 0) {
                 let keys = Object.keys(data[0]);
                 if (section === 'transaksi') {
-                    keys = ['Tanggal', 'No Doc', 'ID DO-TO', 'Trans', ...keys.filter(k => k !== 'Tanggal' && k !== 'No Doc' && k !== 'ID DO-TO' && k !== 'Trans')];
+                    keys = ['Tanggal', 'No Doc', 'ID DO-TO', ...keys.filter(k => k !== 'Tanggal' && k !== 'No Doc' && k !== 'ID DO-TO')];
                 }
 
                 keys.forEach(k => html += `<th class="border text-[9pt] font-bold uppercase text-gray-600">${k}</th>`);
@@ -456,7 +459,7 @@
             } else {
                 let defaultKeys = [];
                 if(section === 'barang') defaultKeys = ["Kategori", "Jenis", "Kode Barang", "Nama Barang"];
-                else if(section === 'transaksi') defaultKeys = ["Tanggal", "No Doc", "ID DO-TO", "Trans", "Gudang Asal", "Gudang Tujuan", "Kode Project", "Kategori", "Jenis", "Kode Barang", "Nama Barang (Auto)", "Jumlah", "Petugas", "Keterangan"];
+                else if(section === 'transaksi') defaultKeys = ["Tanggal", "No Doc", "ID DO-TO", "Tipe Transaksi", "Gudang Asal", "Gudang Tujuan", "Kode Project", "Kategori", "Jenis", "Kode Barang", "Nama Barang (Auto)", "Jumlah", "Petugas", "Keterangan"];
                 else if(section === 'gudang') defaultKeys = ["Kode Gudang", "Nama Gudang"];
                 else if(section === 'project') defaultKeys = ["Kode Project", "Nama Project"];
 
@@ -604,9 +607,9 @@
                 if(!rekap[nama]) rekap[nama] = { masuk: 0, keluar: 0, t_masuk: 0, t_keluar: 0 };
                 let isGudangRelevant = (selectedGudang === "" || t['Gudang Asal'] === selectedGudang || t['Gudang Tujuan'] === selectedGudang);
                 if(isGudangRelevant) {
-                    if(t['Trans'] === 'Masuk' && (selectedGudang === "" || t['Gudang Tujuan'] === selectedGudang)) rekap[nama].masuk += jml;
-                    if(t['Trans'] === 'Keluar' && (selectedGudang === "" || t['Gudang Asal'] === selectedGudang)) rekap[nama].keluar += jml;
-                    if(t['Trans'] === 'Transfer') {
+                    if(t['Tipe Transaksi'] === 'Masuk' && (selectedGudang === "" || t['Gudang Tujuan'] === selectedGudang)) rekap[nama].masuk += jml;
+                    if(t['Tipe Transaksi'] === 'Keluar' && (selectedGudang === "" || t['Gudang Asal'] === selectedGudang)) rekap[nama].keluar += jml;
+                    if(t['Tipe Transaksi'] === 'Transfer') {
                         if(t['Gudang Tujuan'] === selectedGudang || selectedGudang === "") rekap[nama].t_masuk += jml;
                         if(t['Gudang Asal'] === selectedGudang || selectedGudang === "") rekap[nama].t_keluar += jml;
                     }
@@ -660,9 +663,9 @@
                     if(isGudangRelevant) {
                         let jml = parseInt(t['Jumlah'] || 0);
                         let effectiveJml = 0;
-                        if(t['Trans'] === 'Masuk' && (selectedGudang === "" || t['Gudang Tujuan'] === selectedGudang)) effectiveJml = jml;
-                        else if(t['Trans'] === 'Keluar' && (selectedGudang === "" || t['Gudang Asal'] === selectedGudang)) effectiveJml = -jml;
-                        else if(t['Trans'] === 'Transfer') {
+                        if(t['Tipe Transaksi'] === 'Masuk' && (selectedGudang === "" || t['Gudang Tujuan'] === selectedGudang)) effectiveJml = jml;
+                        else if(t['Tipe Transaksi'] === 'Keluar' && (selectedGudang === "" || t['Gudang Asal'] === selectedGudang)) effectiveJml = -jml;
+                        else if(t['Tipe Transaksi'] === 'Transfer') {
                             if(t['Gudang Tujuan'] === selectedGudang) effectiveJml = jml;
                             else if(t['Gudang Asal'] === selectedGudang) effectiveJml = -jml;
                             else if(selectedGudang === "") effectiveJml = 0;
@@ -704,8 +707,8 @@
                 let nama = t['Nama Barang (Auto)'] || '-';
                 let jml = parseInt(t['Jumlah'] || 0);
                 if(!rekap[nama]) rekap[nama] = { masuk: 0, keluar: 0 };
-                if(t['Trans'] === 'Masuk') rekap[nama].masuk += jml;
-                if(t['Trans'] === 'Keluar') rekap[nama].keluar += jml;
+                if(t['Tipe Transaksi'] === 'Masuk') rekap[nama].masuk += jml;
+                if(t['Tipe Transaksi'] === 'Keluar') rekap[nama].keluar += jml;
             });
             let options = (db.project || []).map(p => `<option value="${p['Kode Project']}" ${selectedProject === p['Kode Project'] ? 'selected' : ''}>${p['Nama Project']}</option>`).join('');
             let html = `
@@ -749,8 +752,8 @@
                     if (selectedProject === "" || t['Kode Project'] === selectedProject) {
                         let jml = parseInt(t['Jumlah'] || 0);
                         let effectiveJml = 0;
-                        if(t['Trans'] === 'Masuk') effectiveJml = jml;
-                        if(t['Trans'] === 'Keluar') effectiveJml = -jml;
+                        if(t['Tipe Transaksi'] === 'Masuk') effectiveJml = jml;
+                        if(t['Tipe Transaksi'] === 'Keluar') effectiveJml = -jml;
 
                         breakdownList.push({
                             noDoc: t['No Doc'] || '-',
@@ -835,11 +838,11 @@
                             <input type="text" name="ID DO-TO" value="${idDoToVal}" class="w-full border p-1.5 rounded text-[8pt] bg-white font-bold text-gray-800" required>
                         </div>
                         <div>
-                            <label class="block text-[8pt] font-medium text-gray-700 mb-1">Trans</label>
-                            <select name="Trans" class="w-full border p-1.5 rounded text-[8pt]">
-                                <option value="Masuk" ${item['Trans'] === 'Masuk' ? 'selected' : ''}>Masuk</option>
-                                <option value="Keluar" ${item['Trans'] === 'Keluar' ? 'selected' : ''}>Keluar</option>
-                                <option value="Transfer" ${item['Trans'] === 'Transfer' ? 'selected' : ''}>Transfer</option>
+                            <label class="block text-[8pt] font-medium text-gray-700 mb-1">Tipe Transaksi</label>
+                            <select name="Tipe Transaksi" class="w-full border p-1.5 rounded text-[8pt]">
+                                <option value="Masuk" ${item['Tipe Transaksi'] === 'Masuk' ? 'selected' : ''}>Masuk</option>
+                                <option value="Keluar" ${item['Tipe Transaksi'] === 'Keluar' ? 'selected' : ''}>Keluar</option>
+                                <option value="Transfer" ${item['Tipe Transaksi'] === 'Transfer' ? 'selected' : ''}>Transfer</option>
                             </select>
                         </div>
                         <div>
@@ -941,7 +944,7 @@
                 let tgl = formData.get('Tanggal');
                 let idDoTo = formData.get('ID DO-TO'); 
                 let docVal = formData.get('No Doc'); 
-                let trans = formData.get('Trans');
+                let tipe = formData.get('Tipe Transaksi');
                 let asal = formData.get('Gudang Asal');
                 let tujuan = formData.get('Gudang Tujuan');
                 let proj = formData.get('Kode Project');
@@ -965,7 +968,7 @@
                         "Tanggal": tgl,
                         "No Doc": docVal,
                         "ID DO-TO": idDoTo,
-                        "Trans": trans,
+                        "Tipe Transaksi": tipe,
                         "Gudang Asal": asal,
                         "Gudang Tujuan": tujuan,
                         "Kode Project": proj,
