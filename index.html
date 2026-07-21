@@ -32,38 +32,45 @@
   const fbDb = getDatabase(app);
   const auth = getAuth(app);
 
-  // Monitor Status Login
   onAuthStateChanged(auth, (user) => {
     const loginSection = document.getElementById('login-section');
     const appSection = document.getElementById('app-section');
     const userEmailText = document.getElementById('user-email-text');
 
-      if (user) {
-        loginSection.classList.add('hidden');
-        appSection.classList.remove('hidden');
-        if (userEmailText) {
-          const userName = user.displayName || user.email.split('@')[0];
-          userEmailText.innerText = userName;
-        }
+    if (!loginSection || !appSection) return;
+
+    if (user) {
+      loginSection.classList.add('hidden');
+      appSection.classList.remove('hidden');
+      if (userEmailText) {
+        const userName = user.displayName || user.email.split('@')[0];
+        userEmailText.innerText = userName;
+      }
+      if (typeof window.loadFromFirebase === 'function') {
         window.loadFromFirebase();
       }
-     else {
+    } else {
       loginSection.classList.remove('hidden');
       appSection.classList.add('hidden');
     }
   });
 
-  // Fungsi Login
   window.handleLogin = function(e) {
     e.preventDefault();
-    const email = document.getElementById('login-email').value;
-    const password = document.getElementById('login-password').value;
+    const emailInput = document.getElementById('login-email');
+    const passwordInput = document.getElementById('login-password');
     const errorEl = document.getElementById('login-error');
+    
+    if (!emailInput || !passwordInput || !errorEl) return;
+
+    const email = emailInput.value;
+    const password = passwordInput.value;
     errorEl.classList.add('hidden');
 
     signInWithEmailAndPassword(auth, email, password)
       .then(() => {
-        document.getElementById('login-form').reset();
+        const loginForm = document.getElementById('login-form');
+        if (loginForm) loginForm.reset();
       })
       .catch((error) => {
         errorEl.innerText = "Login gagal: Email atau Password salah!";
@@ -71,14 +78,12 @@
       });
   };
 
-  // Fungsi Logout
   window.handleLogout = function() {
     signOut(auth);
   };
 
-  // Sync Data ke Firebase
   window.syncToFirebase = function() {
-    if (!window.db) return;
+    if (!fbDb || !window.db) return;
     const dbRef = ref(fbDb, 'data_aplikasi');
     set(dbRef, window.db).then(() => {
       console.log("Data berhasil tersimpan di Firebase!");
@@ -87,8 +92,8 @@
     });
   };
 
-  // Load Data dari Firebase
   window.loadFromFirebase = function() {
+    if (!fbDb) return;
     get(child(ref(fbDb), 'data_aplikasi')).then((snapshot) => {
       if (snapshot.exists()) {
         window.db = snapshot.val();
@@ -147,7 +152,6 @@
             </div>
         </header>
 
-        <!-- Spacer agar konten utama tidak tertutup header yang fixed -->
         <div class="h-24"></div>
 
         <main id="main-content" class="bg-white p-6 rounded-b-xl shadow-md min-h-[500px]">
@@ -356,7 +360,9 @@
         }
 
         function renderDashboard() {
-            document.getElementById('main-content').innerHTML = `
+            const mainContent = document.getElementById('main-content');
+            if (!mainContent) return;
+            mainContent.innerHTML = `
                 <h2 class="text-2xl font-bold mb-6">Dashboard Utama</h2>
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     <button onclick="renderTable('gudang')" class="p-6 bg-blue-700 text-white rounded-lg shadow hover:bg-blue-600">Master Gudang</button>
@@ -371,7 +377,8 @@
         }
 
         function searchTransaksi() {
-            const query = document.getElementById('search-doc')?.value.trim().toLowerCase();
+            const searchDoc = document.getElementById('search-doc');
+            const query = searchDoc ? searchDoc.value.trim().toLowerCase() : '';
             renderTable('transaksi', query);
         }
 
@@ -418,9 +425,10 @@
             
             let searchBar = '';
             if (section === 'transaksi') {
+                const existingSearchDoc = document.getElementById('search-doc');
                 searchBar = `
                     <div class="flex items-center space-x-2 mr-4">
-                        <input type="text" id="search-doc" value="${searchQuery ? document.getElementById('search-doc')?.value || '' : ''}" placeholder="Cari No Doc..." class="border p-2 rounded text-[9pt] w-48 md:w-64">
+                        <input type="text" id="search-doc" value="${searchQuery ? (existingSearchDoc?.value || '') : ''}" placeholder="Cari No Doc..." class="border p-2 rounded text-[9pt] w-48 md:w-64">
                         <button onclick="searchTransaksi()" class="bg-blue-600 text-white px-4 py-2 rounded shadow hover:bg-blue-500 text-[9pt]">Cari</button>
                     </div>
                 `;
@@ -473,7 +481,9 @@
                 html += `<th class="border text-[9pt] font-bold uppercase text-gray-600">Aksi</th></tr></thead><tbody><tr><td colspan="${defaultKeys.length + 1}" class="text-center p-4 text-gray-400">Tidak ada data ditemukan</td></tr>`;
             }
             html += `</tbody></table></div>`;
-            document.getElementById('main-content').innerHTML = html;
+            
+            const mainContent = document.getElementById('main-content');
+            if (mainContent) mainContent.innerHTML = html;
         }
 
         function getRomanMonth(date) {
@@ -525,7 +535,6 @@
             onGudangAsalChange();
         }
 
-        // Fungsi Filter Project berdasarkan Gudang Asal ketika Tipe Transaksi 'Keluar'
         function onGudangAsalChange() {
             const tipeTransaksi = document.querySelector('select[name="Tipe Transaksi"]')?.value;
             const gudangAsal = document.querySelector('select[name="Gudang Asal"]')?.value;
@@ -536,12 +545,8 @@
             const currentSelectedProject = projectSelect.value;
             projectSelect.innerHTML = '<option value="">-- Pilih --</option>';
 
-            // Jika tipe transaksi adalah 'Keluar', terapkan aturan filter
             if (tipeTransaksi === 'Keluar') {
-                // Ketentuan 6: Apabila Gudang Asal tidak dipilih, jangan tampilkan Kode Project
-                if (!gudangAsal) {
-                    return;
-                }
+                if (!gudangAsal) return;
 
                 let targetPrefix = "";
                 if (gudangAsal.startsWith('ACM-ACH')) targetPrefix = 'ACH';
@@ -550,10 +555,7 @@
                 else if (gudangAsal.startsWith('ACM-BKT')) targetPrefix = 'BKT';
                 else if (gudangAsal.startsWith('ACM-PAD')) targetPrefix = 'PAD';
 
-                // Ketentuan 7: Jangan tampilkan Kode Project apabila Gudang Asal selain dari kode di atas
-                if (!targetPrefix) {
-                    return;
-                }
+                if (!targetPrefix) return;
 
                 let filteredProjects = (db.project || []).filter(p => (p['Kode Project'] || "").startsWith(targetPrefix));
 
@@ -562,7 +564,6 @@
                     projectSelect.innerHTML += `<option value="${p['Kode Project']}" ${isSelected}>${p['Kode Project']} - ${p['Nama Project']}</option>`;
                 });
             } else {
-                // Jika bukan tipe 'Keluar', tampilkan semua project seperti biasa
                 (db.project || []).forEach(p => {
                     let isSelected = (p['Kode Project'] === currentSelectedProject) ? 'selected' : '';
                     projectSelect.innerHTML += `<option value="${p['Kode Project']}" ${isSelected}>${p['Kode Project']} - ${p['Nama Project']}</option>`;
@@ -606,6 +607,9 @@
         }
 
         function addTransactionRow(item = {}) {
+            const tbody = document.getElementById('item-tbody');
+            if (!tbody) return;
+
             let tr = document.createElement('tr');
             
             let categories = [...new Set((db.barang || []).map(b => b['Kategori']))];
@@ -638,7 +642,7 @@
                     <button type="button" onclick="this.closest('tr').remove()" class="text-red-500 hover:text-red-700 font-bold px-2">&times;</button>
                 </td>
             `;
-            document.getElementById('item-tbody').appendChild(tr);
+            tbody.appendChild(tr);
 
             if (item['Kategori']) {
                 let catSelect = tr.querySelector('select[name="Kategori[]"]');
@@ -653,6 +657,8 @@
             let kodeSelect = tr.querySelector('select[name="Kode Barang[]"]');
             let namaInput = tr.querySelector('input[name="Nama Barang (Auto)[]"]');
             
+            if (!jenisSelect || !kodeSelect || !namaInput) return;
+
             jenisSelect.innerHTML = '<option value="">-- Pilih --</option>';
             kodeSelect.innerHTML = '<option value="">-- Pilih --</option>';
             namaInput.value = '';
@@ -672,6 +678,8 @@
             let jenisVal = el.value;
             let kodeSelect = tr.querySelector('select[name="Kode Barang[]"]');
             let namaInput = tr.querySelector('input[name="Nama Barang (Auto)[]"]');
+
+            if (!kodeSelect || !namaInput) return;
 
             kodeSelect.innerHTML = '<option value="">-- Pilih --</option>';
             namaInput.value = '';
@@ -776,7 +784,9 @@
                 html += `<tr><td class="border text-[9pt] font-medium">${nama}</td><td class="border text-[9pt]">${rekap[nama].masuk}</td><td class="border text-[9pt]">${rekap[nama].keluar}</td><td class="border text-[9pt]">${rekap[nama].t_masuk}</td><td class="border text-[9pt]">${rekap[nama].t_keluar}</td><td class="border text-[9pt] font-bold text-blue-600 underline cursor-pointer hover:text-blue-800" onclick="showBreakdown('${nama}')">${sisa}</td></tr>`;
             });
             html += `</tbody></table></div>`;
-            document.getElementById('main-content').innerHTML = html;
+            
+            const mainContent = document.getElementById('main-content');
+            if (mainContent) mainContent.innerHTML = html;
         }
 
         function showBreakdown(namaBarang) {
@@ -814,8 +824,14 @@
                 aggregatedBreakdown[item.kode] += item.jumlah;
             });
 
-            document.getElementById('modal-title').innerText = `Breakdown Stok: ${namaBarang}`;
-            document.getElementById('btn-save').classList.add('hidden');
+            const modalTitle = document.getElementById('modal-title');
+            const btnSave = document.getElementById('btn-save');
+            const dataForm = document.getElementById('data-form');
+            const modal = document.getElementById('modal');
+
+            if (modalTitle) modalTitle.innerText = `Breakdown Stok: ${namaBarang}`;
+            if (btnSave) btnSave.classList.add('hidden');
+            
             let html = `<div class="overflow-x-auto"><table class="w-full text-left border-collapse border border-gray-200 text-[9pt] table-compact"><thead class="bg-gray-100"><tr><th class="border text-[9pt] font-bold uppercase text-gray-600">Kode Barang</th><th class="border text-[9pt] font-bold uppercase text-gray-600">Sisa</th></tr></thead><tbody>`;
             
             let hasData = false;
@@ -832,8 +848,8 @@
             }
 
             html += `</tbody></table></div>`;
-            document.getElementById('data-form').innerHTML = html;
-            document.getElementById('modal').classList.remove('hidden');
+            if (dataForm) dataForm.innerHTML = html;
+            if (modal) modal.classList.remove('hidden');
         }
 
         function renderRekapStokProyek() {
@@ -880,7 +896,9 @@
                 </tr>`;
             });
             html += `</tbody></table></div>`;
-            document.getElementById('main-content').innerHTML = html;
+            
+            const mainContent = document.getElementById('main-content');
+            if (mainContent) mainContent.innerHTML = html;
         }
 
         function showBreakdownProyek(namaBarang) {
@@ -910,8 +928,13 @@
                 aggregatedBreakdown[item.kode] += item.jumlah;
             });
 
-            document.getElementById('modal-title').innerText = `Breakdown Stok Proyek: ${namaBarang}`;
-            document.getElementById('btn-save').classList.add('hidden');
+            const modalTitle = document.getElementById('modal-title');
+            const btnSave = document.getElementById('btn-save');
+            const dataForm = document.getElementById('data-form');
+            const modal = document.getElementById('modal');
+
+            if (modalTitle) modalTitle.innerText = `Breakdown Stok Proyek: ${namaBarang}`;
+            if (btnSave) btnSave.classList.add('hidden');
             
             let html = `
                 <div class="overflow-x-auto">
@@ -938,34 +961,40 @@
             }
             
             html += `</tbody></table></div>`;
-            document.getElementById('data-form').innerHTML = html;
-            document.getElementById('modal').classList.remove('hidden');
+            if (dataForm) dataForm.innerHTML = html;
+            if (modal) modal.classList.remove('hidden');
         }
 
         function openModal(index) {
             editIndex = index;
-            document.getElementById('btn-save').classList.remove('hidden');
+            const btnSave = document.getElementById('btn-save');
+            if (btnSave) btnSave.classList.remove('hidden');
+
             let btnPdf = document.getElementById('btn-print-pdf');
-            if(!btnPdf) {
+            if(!btnPdf && btnSave && btnSave.parentNode) {
                 btnPdf = document.createElement('button');
                 btnPdf.id = 'btn-print-pdf';
                 btnPdf.className = "px-4 py-2 bg-red-600 text-white rounded hover:bg-red-500 text-[9pt] hidden";
                 btnPdf.innerText = "Print PDF";
-                document.getElementById('btn-save').parentNode.insertBefore(btnPdf, document.getElementById('btn-save'));
+                btnSave.parentNode.insertBefore(btnPdf, btnSave);
             }
             
             const form = document.getElementById('data-form');
+            if (!form) return;
             form.innerHTML = '';
             
             const item = index === -1 ? {} : db[currentSection][index];
-            document.getElementById('modal-title').innerText = index === -1 ? 'Tambah Data' : 'Edit Data';
+            const modalTitle = document.getElementById('modal-title');
+            if (modalTitle) modalTitle.innerText = index === -1 ? 'Tambah Data' : 'Edit Data';
 
             if (currentSection === 'transaksi') {
-                if (index !== -1) {
-                    btnPdf.classList.remove('hidden');
-                    btnPdf.onclick = function() { printNotaPDF(db.transaksi[index]); };
-                } else {
-                    btnPdf.classList.add('hidden');
+                if (btnPdf) {
+                    if (index !== -1) {
+                        btnPdf.classList.remove('hidden');
+                        btnPdf.onclick = function() { printNotaPDF(db.transaksi[index]); };
+                    } else {
+                        btnPdf.classList.add('hidden');
+                    }
                 }
 
                 form.className = "text-[9pt]";
@@ -1017,12 +1046,12 @@
                             </select>
                         </div>
                         <div>
-                            <label class="block text-[8pt] font-medium text-gray-700 mb-1">Petugas</label>
-                            <input type="text" name="Petugas" value="${item['Petugas'] || ''}" class="w-full border p-1.5 rounded text-[8pt]">
+                            <label class="block text-[8pt] font-medium text-gray-700 mb-1">Petugas <span class="text-red-500">*</span></label>
+                            <input type="text" name="Petugas" value="${item['Petugas'] || ''}" class="w-full border p-1.5 rounded text-[8pt]" required>
                         </div>
                         <div class="col-span-2 md:col-span-4">
-                            <label class="block text-[8pt] font-medium text-gray-700 mb-1">Keterangan</label>
-                            <input type="text" name="Keterangan" value="${item['Keterangan'] || ''}" class="w-full border p-1.5 rounded text-[8pt]">
+                            <label class="block text-[8pt] font-medium text-gray-700 mb-1">Keterangan <span class="text-red-500">*</span></label>
+                            <input type="text" name="Keterangan" value="${item['Keterangan'] || ''}" class="w-full border p-1.5 rounded text-[8pt]" required>
                         </div>
                     </div>
                     
@@ -1049,9 +1078,9 @@
                     </div>
                 `;
                 form.innerHTML = headerHTML;
-                document.getElementById('modal').classList.remove('hidden');
+                const modal = document.getElementById('modal');
+                if (modal) modal.classList.remove('hidden');
 
-                // Terapkan filter project sesuai gudang asal saat modal terbuka
                 onGudangAsalChange();
 
                 if (index === -1) {
@@ -1070,7 +1099,7 @@
                 return;
             }
 
-            btnPdf.classList.add('hidden');
+            if (btnPdf) btnPdf.classList.add('hidden');
             form.className = "grid grid-cols-2 gap-4 text-[9pt]";
             let keys = currentSection === 'barang' ? ['Kategori', 'Jenis', 'Kode Barang', 'Nama Barang'] : (db[currentSection] && db[currentSection].length > 0 ? Object.keys(db[currentSection][0]) : []);
 
@@ -1078,13 +1107,18 @@
                 let inputHtml = `<input type="text" name="${key}" value="${item[key] || ''}" class="w-full border p-2 rounded text-[9pt]" required>`;
                 form.innerHTML += `<div><label class="block text-[9pt] font-medium mb-1 text-gray-700">${key}</label>${inputHtml}</div>`;
             });
-            document.getElementById('modal').classList.remove('hidden');
+            const modal = document.getElementById('modal');
+            if (modal) modal.classList.remove('hidden');
         }
 
-        function closeModal() { document.getElementById('modal').classList.add('hidden'); }
+        function closeModal() { 
+            const modal = document.getElementById('modal');
+            if (modal) modal.classList.add('hidden'); 
+        }
 
         function saveData() {
             const form = document.getElementById('data-form');
+            if (!form) return;
             if(!form.checkValidity()) {
                 form.reportValidity();
                 return;
