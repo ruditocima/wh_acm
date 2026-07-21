@@ -254,6 +254,7 @@
             doc.text(`ID DO-TO: ${t['ID DO-TO'] || '-'}`, 40, 110);
             
             doc.text(`Tanggal : ${t['Tanggal'] || '-'}`, 550, 95, { align: 'right' });
+            doc.text(`Tipe Transaksi : ${t['Tipe Transaksi'] || '-'}`, 550, 110, { align: 'right' });
 
             let bodyData = [];
             allItems.forEach(item => {
@@ -268,7 +269,8 @@
                 ]);
             });
             
-            while (bodyData.length < 10) {
+            // Diperbarui menjadi 12 baris kosong
+            while (bodyData.length < 12) {
                 bodyData.push(['', '', '', '', '', '', '']);
             }
 
@@ -282,6 +284,7 @@
                 columnStyles: { 1: { halign: 'left' } }
             });
 
+            // Dinaikkan sekitar 2 baris (dari +68 menjadi +40)
             let finalY = doc.lastAutoTable.finalY + 40;
             doc.setFontSize(8); 
 
@@ -514,7 +517,6 @@
         }
 
         function onTipeTransaksiChange() {
-            // Reset pilihan baris item saat tipe transaksi diubah agar daftar kode barang terfilter ulang
             const tbody = document.getElementById('item-tbody');
             if (tbody) {
                 tbody.innerHTML = '';
@@ -526,10 +528,8 @@
             const tipeTransaksi = document.querySelector('select[name="Tipe Transaksi"]')?.value || 'Masuk';
             const selectedGudangAsal = document.querySelector('select[name="Gudang Asal"]')?.value || '';
             
-            // Jika tipe transaksi 'Masuk', semua barang boleh dipilih
             if (tipeTransaksi === 'Masuk') return null;
 
-            // Hitung sisa stok per kode barang berdasarkan transaksi yang sudah ada
             let stockMap = {};
             (db.transaksi || []).forEach(t => {
                 let kode = t['Kode Barang'];
@@ -551,7 +551,6 @@
                         if (t['Gudang Asal'] === selectedGudangAsal) stockMap[kode] -= jml;
                         if (t['Gudang Tujuan'] === selectedGudangAsal) stockMap[kode] += jml;
                     } else {
-                        // Jika gudang asal kosong pada transfer umum, asumsikan netral atau kurangi jika keluar
                         stockMap[kode] -= jml; 
                     }
                 }
@@ -632,15 +631,13 @@
             namaInput.value = '';
 
             if (jenisVal && kategoriVal) {
-                let stockMap = getAvailableStockByCode(); // Mengambil peta stok sisa
+                let stockMap = getAvailableStockByCode(); 
 
                 let filteredBarang = (db.barang || []).filter(b => {
                     if (b['Kategori'] !== kategoriVal || b['Jenis'] !== jenisVal) return false;
                     
-                    // Jika tipe transaksi adalah Keluar/Transfer, saring barang dengan stok <= 0
                     if (stockMap !== null) {
                         let currentSisa = stockMap[b['Kode Barang']] || 0;
-                        // Izinkan juga jika item ini sedang diedit (ada dalam item lama form)
                         if (currentSisa <= 0) return false;
                     }
                     return true;
@@ -744,7 +741,6 @@
                 }
             });
 
-            // Agregasi berdasarkan Kode Barang untuk menghitung sisa per kode barang
             let aggregatedBreakdown = {};
             breakdownList.forEach(item => {
                 if (!aggregatedBreakdown[item.kode]) {
@@ -839,7 +835,6 @@
                 }
             });
             
-            // Agregasi berdasarkan Kode Barang untuk menghitung sisa per kode barang pada proyek
             let aggregatedBreakdown = {};
             breakdownList.forEach(item => {
                 if (!aggregatedBreakdown[item.kode]) {
