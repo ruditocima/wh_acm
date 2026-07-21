@@ -649,27 +649,44 @@
 
         function showBreakdown(namaBarang) {
             const selectedGudang = document.getElementById('gudang-filter')?.value || "";
-            let breakdown = {};
+            let breakdownList = [];
             (db.transaksi || []).forEach(t => {
                 if(t['Nama Barang (Auto)'] === namaBarang) {
                     let isGudangRelevant = (selectedGudang === "" || t['Gudang Asal'] === selectedGudang || t['Gudang Tujuan'] === selectedGudang);
                     if(isGudangRelevant) {
-                        let kode = t['Kode Barang'];
-                        if(!breakdown[kode]) breakdown[kode] = 0;
                         let jml = parseInt(t['Jumlah'] || 0);
-                        if(t['Tipe Transaksi'] === 'Masuk' && (selectedGudang === "" || t['Gudang Tujuan'] === selectedGudang)) breakdown[kode] += jml;
-                        if(t['Tipe Transaksi'] === 'Keluar' && (selectedGudang === "" || t['Gudang Asal'] === selectedGudang)) breakdown[kode] -= jml;
-                        if(t['Tipe Transaksi'] === 'Transfer') {
-                            if(t['Gudang Tujuan'] === selectedGudang || selectedGudang === "") breakdown[kode] += jml;
-                            if(t['Gudang Asal'] === selectedGudang || selectedGudang === "") breakdown[kode] -= jml;
+                        let effectiveJml = 0;
+                        if(t['Tipe Transaksi'] === 'Masuk' && (selectedGudang === "" || t['Gudang Tujuan'] === selectedGudang)) effectiveJml = jml;
+                        else if(t['Tipe Transaksi'] === 'Keluar' && (selectedGudang === "" || t['Gudang Asal'] === selectedGudang)) effectiveJml = -jml;
+                        else if(t['Tipe Transaksi'] === 'Transfer') {
+                            if(t['Gudang Tujuan'] === selectedGudang) effectiveJml = jml;
+                            else if(t['Gudang Asal'] === selectedGudang) effectiveJml = -jml;
+                            else if(selectedGudang === "") effectiveJml = 0; // or handle general transfer view if needed
+                        }
+                        
+                        if (effectiveJml !== 0 || selectedGudang === "") {
+                            breakdownList.push({
+                                noDoc: t['No Doc'] || '-',
+                                kode: t['Kode Barang'] || '-',
+                                jumlah: effectiveJml !== 0 ? effectiveJml : jml
+                            });
                         }
                     }
                 }
             });
+
             document.getElementById('modal-title').innerText = `Breakdown Stok: ${namaBarang}`;
             document.getElementById('btn-save').classList.add('hidden');
-            let html = `<div class="overflow-x-auto"><table class="w-full text-left border-collapse border border-gray-200 text-[9pt] table-compact"><thead class="bg-gray-100"><tr><th class="border text-[9pt] font-bold uppercase text-gray-600">Kode Barang</th><th class="border text-[9pt] font-bold uppercase text-gray-600">Total Sisa</th></tr></thead><tbody>`;
-            for(let kode in breakdown) { html += `<tr><td class="border text-[9pt] font-medium">${kode}</td><td class="border text-[9pt] font-bold">${breakdown[kode]}</td></tr>`; }
+            let html = `<div class="overflow-x-auto"><table class="w-full text-left border-collapse border border-gray-200 text-[9pt] table-compact"><thead class="bg-gray-100"><tr><th class="border text-[9pt] font-bold uppercase text-gray-600">No Doc</th><th class="border text-[9pt] font-bold uppercase text-gray-600">Kode Barang</th><th class="border text-[9pt] font-bold uppercase text-gray-600">Jumlah</th></tr></thead><tbody>`;
+            
+            if(breakdownList.length > 0) {
+                breakdownList.forEach(item => {
+                    html += `<tr><td class="border text-[9pt] font-medium">${item.noDoc}</td><td class="border text-[9pt]">${item.kode}</td><td class="border text-[9pt] font-bold">${item.jumlah}</td></tr>`;
+                });
+            } else {
+                html += `<tr><td colspan="3" class="text-center p-4 text-gray-400">Tidak ada data breakdown</td></tr>`;
+            }
+
             html += `</tbody></table></div>`;
             document.getElementById('data-form').innerHTML = html;
             document.getElementById('modal').classList.remove('hidden');
@@ -722,15 +739,20 @@
 
         function showBreakdownProyek(namaBarang) {
             const selectedProject = document.getElementById('project-filter')?.value || "";
-            let breakdown = {};
+            let breakdownList = [];
             (db.transaksi || []).forEach(t => {
                 if(t['Nama Barang (Auto)'] === namaBarang) {
                     if (selectedProject === "" || t['Kode Project'] === selectedProject) {
-                        let kode = t['Kode Barang'];
-                        if(!breakdown[kode]) breakdown[kode] = 0;
                         let jml = parseInt(t['Jumlah'] || 0);
-                        if(t['Tipe Transaksi'] === 'Masuk') breakdown[kode] += jml;
-                        if(t['Tipe Transaksi'] === 'Keluar') breakdown[kode] -= jml;
+                        let effectiveJml = 0;
+                        if(t['Tipe Transaksi'] === 'Masuk') effectiveJml = jml;
+                        if(t['Tipe Transaksi'] === 'Keluar') effectiveJml = -jml;
+
+                        breakdownList.push({
+                            noDoc: t['No Doc'] || '-',
+                            kode: t['Kode Barang'] || '-',
+                            jumlah: effectiveJml !== 0 ? effectiveJml : jml
+                        });
                     }
                 }
             });
@@ -743,14 +765,19 @@
                     <table class="w-full text-left border-collapse border border-gray-200 text-[9pt] table-compact">
                         <thead class="bg-gray-100">
                             <tr>
+                                <th class="border text-[9pt] font-bold uppercase text-gray-600">No Doc</th>
                                 <th class="border text-[9pt] font-bold uppercase text-gray-600">Kode Barang</th>
-                                <th class="border text-[9pt] font-bold uppercase text-gray-600">Total Sisa</th>
+                                <th class="border text-[9pt] font-bold uppercase text-gray-600">Jumlah</th>
                             </tr>
                         </thead>
                         <tbody>`;
                         
-            for(let kode in breakdown) { 
-                html += `<tr><td class="border text-[9pt] font-medium">${kode}</td><td class="border text-[9pt] font-bold">${breakdown[kode]}</td></tr>`; 
+            if(breakdownList.length > 0) {
+                breakdownList.forEach(item => {
+                    html += `<tr><td class="border text-[9pt] font-medium">${item.noDoc}</td><td class="border text-[9pt]">${item.kode}</td><td class="border text-[9pt] font-bold">${item.jumlah}</td></tr>`;
+                });
+            } else {
+                html += `<tr><td colspan="3" class="text-center p-4 text-gray-400">Tidak ada data breakdown proyek</td></tr>`;
             }
             
             html += `</tbody></table></div>`;
@@ -870,7 +897,6 @@
                 if (index === -1) {
                     addTransactionRow();
                 } else {
-                    // Cari semua item barang yang memiliki No Doc sama
                     let sameDocItems = (db.transaksi || []).filter(t => t['No Doc'] === item['No Doc']);
                     
                     if (sameDocItems.length > 0) {
@@ -960,9 +986,7 @@
                 if (isNewInput) {
                     db.transaksi.push(...newItems); 
                 } else {
-                    // Filter / Hapus semua record lama dengan No Doc yang sama
                     db.transaksi = db.transaksi.filter(t => t['No Doc'] !== docVal);
-                    // Masukkan seluruh record baru
                     db.transaksi.push(...newItems);
                 }
             } 
