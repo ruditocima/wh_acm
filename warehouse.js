@@ -61,7 +61,32 @@ function printNotaPDF(t) {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF('p', 'pt', 'a4'); 
     
+    // Ambil semua item berdasarkan No Doc yang sama
     let allItems = db.transaksi.filter(x => x['No Doc'] === t['No Doc']);
+    
+    // Logika Penggabungan (Aggregating) Nama Barang yang Sama
+    let mergedItemsMap = {};
+    allItems.forEach(item => {
+        let namaBarang = item['Nama Barang (Auto)'] || '-';
+        let jumlah = parseInt(item['Jumlah'] || 0);
+        
+        if (!mergedItemsMap[namaBarang]) {
+            // Ambil referensi data awal untuk atribut lainnya (Kode Barang, Gudang, dll)
+            mergedItemsMap[namaBarang] = {
+                'Kode Barang': item['Kode Barang'] || '-',
+                'Nama Barang (Auto)': namaBarang,
+                'Jumlah': 0,
+                'Gudang Asal': db.gudang.find(g => g['Kode Gudang'] === item['Gudang Asal'])?.['Nama Gudang'] || '-',
+                'Gudang Tujuan': db.gudang.find(g => g['Kode Gudang'] === item['Gudang Tujuan'])?.['Nama Gudang'] || '-',
+                'Nama Project': db.project.find(p => p['Kode Project'] === item['Kode Project'])?.['Nama Project'] || '-',
+                'Keterangan': item['Keterangan'] || '-'
+            };
+        }
+        // Akumulasikan jumlah jika nama barang sama
+        mergedItemsMap[namaBarang]['Jumlah'] += jumlah;
+    });
+
+    let aggregatedItems = Object.values(mergedItemsMap);
     
     doc.setFont("helvetica", "normal"); 
     doc.setFontSize(12); 
@@ -77,18 +102,19 @@ function printNotaPDF(t) {
     doc.text(`Tipe Transaksi : ${t['Tipe Transaksi'] || '-'}`, 550, 110, { align: 'right' });
 
     let bodyData = [];
-    allItems.forEach(item => {
+    aggregatedItems.forEach(item => {
         bodyData.push([
-            item['Kode Barang'] || '-',
-            item['Nama Barang (Auto)'] || '-',
-            item['Jumlah'] || '0',
-            db.gudang.find(g => g['Kode Gudang'] === item['Gudang Asal'])?.['Nama Gudang'] || '-',
-            db.gudang.find(g => g['Kode Gudang'] === item['Gudang Tujuan'])?.['Nama Gudang'] || '-',
-            db.project.find(p => p['Kode Project'] === item['Kode Project'])?.['Nama Project'] || '-',
-            item['Keterangan'] || '-'
+            item['Kode Barang'],
+            item['Nama Barang (Auto)'],
+            item['Jumlah'],
+            item['Gudang Asal'],
+            item['Gudang Tujuan'],
+            item['Nama Project'],
+            item['Keterangan']
         ]);
     });
     
+    // Baris kosong minimum agar tabel tetap rapi
     while (bodyData.length < 12) {
         bodyData.push(['', '', '', '', '', '', '']);
     }
