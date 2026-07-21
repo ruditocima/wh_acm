@@ -1007,13 +1007,16 @@
     saveToLocal();
     syncToFirebase();
     
-    if (isNewInput) {
+if (isNewInput) {
         let lanjut = confirm("Data berhasil disimpan! Apakah Anda ingin lanjut Input Baru?");
         if (lanjut) openModal(-1);
-        else { closeModal(); renderDashboard(); }
+        else { 
+            closeModal(); 
+            renderTable(currentSection); // Mengembalikan tampilan ke tabel tempat Anda mengedit
+        }
     } else {
         closeModal();
-        renderDashboard();
+        renderTable(currentSection); // Mengembalikan tampilan ke tabel tempat Anda mengedit
     }
 }    
 </script>
