@@ -61,32 +61,8 @@ function printNotaPDF(t) {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF('p', 'pt', 'a4'); 
     
-    // Ambil semua item berdasarkan No Doc yang sama
+    // Ambil semua item berdasarkan No Doc yang sama[cite: 4]
     let allItems = db.transaksi.filter(x => x['No Doc'] === t['No Doc']);
-    
-    // Logika Penggabungan (Aggregating) Nama Barang yang Sama
-    let mergedItemsMap = {};
-    allItems.forEach(item => {
-        let namaBarang = item['Nama Barang (Auto)'] || '-';
-        let jumlah = parseInt(item['Jumlah'] || 0);
-        
-        if (!mergedItemsMap[namaBarang]) {
-            // Ambil referensi data awal untuk atribut lainnya (Kode Barang, Gudang, dll)
-            mergedItemsMap[namaBarang] = {
-                'Kode Barang': item['Kode Barang'] || '-',
-                'Nama Barang (Auto)': namaBarang,
-                'Jumlah': 0,
-                'Gudang Asal': db.gudang.find(g => g['Kode Gudang'] === item['Gudang Asal'])?.['Nama Gudang'] || '-',
-                'Gudang Tujuan': db.gudang.find(g => g['Kode Gudang'] === item['Gudang Tujuan'])?.['Nama Gudang'] || '-',
-                'Nama Project': db.project.find(p => p['Kode Project'] === item['Kode Project'])?.['Nama Project'] || '-',
-                'Keterangan': item['Keterangan'] || '-'
-            };
-        }
-        // Akumulasikan jumlah jika nama barang sama
-        mergedItemsMap[namaBarang]['Jumlah'] += jumlah;
-    });
-
-    let aggregatedItems = Object.values(mergedItemsMap);
     
     doc.setFont("helvetica", "normal"); 
     doc.setFontSize(12); 
@@ -102,15 +78,15 @@ function printNotaPDF(t) {
     doc.text(`Tipe Transaksi : ${t['Tipe Transaksi'] || '-'}`, 550, 110, { align: 'right' });
 
     let bodyData = [];
-    aggregatedItems.forEach(item => {
+    allItems.forEach(item => {
         bodyData.push([
-            item['Kode Barang'],
-            item['Nama Barang (Auto)'],
-            item['Jumlah'],
-            item['Gudang Asal'],
-            item['Gudang Tujuan'],
-            item['Nama Project'],
-            item['Keterangan']
+            item['Kode Barang'] || '-',
+            item['Nama Barang (Auto)'] || '-',
+            item['Jumlah'] || '0',
+            db.gudang.find(g => g['Kode Gudang'] === item['Gudang Asal'])?.['Nama Gudang'] || '-',
+            db.gudang.find(g => g['Kode Gudang'] === item['Gudang Tujuan'])?.['Nama Gudang'] || '-',
+            db.project.find(p => p['Kode Project'] === item['Kode Project'])?.['Nama Project'] || '-',
+            item['Keterangan'] || '-'
         ]);
     });
     
@@ -129,7 +105,31 @@ function printNotaPDF(t) {
         columnStyles: { 1: { halign: 'left' } }
     });
 
-    let finalY = doc.lastAutoTable.finalY + 40;
+    // Menghitung total jumlah per Nama Barang untuk catatan di bawah tabel[cite: 4]
+    let summaryMap = {};
+    allItems.forEach(item => {
+        let namaBarang = item['Nama Barang (Auto)'] || '-';
+        let jumlah = parseInt(item['Jumlah'] || 0);
+        if (!summaryMap[namaBarang]) {
+            summaryMap[namaBarang] = 0;
+        }
+        summaryMap[namaBarang] += jumlah;
+    });
+
+    let currentY = doc.lastAutoTable.finalY + 15;
+    
+    doc.setFont("helvetica", "bold");
+    doc.text("Note :", 40, currentY);
+    currentY += 12;
+
+    doc.setFont("helvetica", "normal");
+    for (let [nama, total] of Object.entries(summaryMap)) {
+        doc.text(`- ${nama} : ${total}`, 50, currentY);
+        currentY += 10;
+    }
+
+    // Posisi tanda tangan di bawah catatan
+    let finalY = currentY + 20;
     doc.setFontSize(8); 
 
     doc.text("Pickup by,", 40, finalY);
@@ -145,8 +145,7 @@ function printNotaPDF(t) {
     doc.line(420, finalY + 40, 520, finalY + 40);
 
     doc.save(`NOTA_${t['No Doc']}.pdf`);
-}        
-
+}
 function exportCSV() {
     let data = db[currentSection];
     if (!data || data.length === 0) return alert("Tidak ada data untuk diexport!");
