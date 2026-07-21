@@ -336,11 +336,14 @@
                 }
             });
 
+            // Urutkan key (Nama Barang) secara ascending (A-Z)
+            let sortedKeys = Object.keys(rekap).sort((a, b) => a.localeCompare(b));
+
             let csv = 'Nama Barang,Masuk,Keluar,T. Masuk,T. Keluar,Sisa\n';
-            for(let nama in rekap) {
+            sortedKeys.forEach(nama => {
                 let sisa = rekap[nama].masuk - rekap[nama].keluar + rekap[nama].t_masuk - rekap[nama].t_keluar;
                 csv += `"${nama}",${rekap[nama].masuk},${rekap[nama].keluar},${rekap[nama].t_masuk},${rekap[nama].t_keluar},${sisa}\n`;
-            }
+            });
             
             let namaGudang = "Semua_Gudang";
             if (selectedGudang) {
@@ -640,7 +643,6 @@
                     // Kondisi khusus: Jika Tipe Transaksi 'Masuk' dan Kategori 'Cable' (case-insensitive),
                     // jangan tampilkan kode barang yang sisanya > 0.
                     if (tipeTransaksi === 'Masuk' && kategoriVal.toLowerCase() === 'cable') {
-                        // Hitung total sisa saat ini untuk kode barang tersebut secara global/keseluruhan
                         let globalStockMap = {};
                         (db.transaksi || []).forEach(t => {
                             let kode = t['Kode Barang'];
@@ -650,7 +652,7 @@
                             if (t['Tipe Transaksi'] === 'Masuk') globalStockMap[kode] += jml;
                             else if (t['Tipe Transaksi'] === 'Keluar') globalStockMap[kode] -= jml;
                             else if (t['Tipe Transaksi'] === 'Transfer') {
-                                // Transfer murni tidak mengubah total stok global, tapi kita hitung standard masuk/keluar
+                                // Transfer murni tidak mengubah total stok global
                             }
                         });
                         let currentSisa = globalStockMap[b['Kode Barang']] || 0;
@@ -699,6 +701,9 @@
                 }
             });
 
+            // Urutkan key (Nama Barang) secara ascending (A-Z)
+            let sortedNames = Object.keys(rekap).sort((a, b) => a.localeCompare(b));
+
             let options = (db.gudang || []).map(g => `<option value="${g['Kode Gudang']}" ${selectedGudang === g['Kode Gudang'] ? 'selected' : ''}>${g['Nama Gudang']}</option>`).join('');
             
             let html = `
@@ -729,10 +734,10 @@
                         </thead>
                         <tbody>`;
                         
-            for(let nama in rekap) {
+            sortedNames.forEach(nama => {
                 let sisa = rekap[nama].masuk - rekap[nama].keluar + rekap[nama].t_masuk - rekap[nama].t_keluar;
                 html += `<tr><td class="border text-[9pt] font-medium">${nama}</td><td class="border text-[9pt]">${rekap[nama].masuk}</td><td class="border text-[9pt]">${rekap[nama].keluar}</td><td class="border text-[9pt]">${rekap[nama].t_masuk}</td><td class="border text-[9pt]">${rekap[nama].t_keluar}</td><td class="border text-[9pt] font-bold text-blue-600 underline cursor-pointer hover:text-blue-800" onclick="showBreakdown('${nama}')">${sisa}</td></tr>`;
-            }
+            });
             html += `</tbody></table></div>`;
             document.getElementById('main-content').innerHTML = html;
         }
@@ -805,6 +810,10 @@
                 if(t['Tipe Transaksi'] === 'Masuk') rekap[nama].masuk += jml;
                 if(t['Tipe Transaksi'] === 'Keluar') rekap[nama].keluar += jml;
             });
+
+            // Urutkan key (Nama Barang) secara ascending (A-Z)
+            let sortedNames = Object.keys(rekap).sort((a, b) => a.localeCompare(b));
+
             let options = (db.project || []).map(p => `<option value="${p['Kode Project']}" ${selectedProject === p['Kode Project'] ? 'selected' : ''}>${p['Nama Project']}</option>`).join('');
             let html = `
                 <div class="sticky top-20 z-40 bg-white pt-2 pb-4 mb-4 border-b border-gray-200">
@@ -826,7 +835,7 @@
                             </tr>
                         </thead>
                         <tbody>`; 
-            for(let nama in rekap) {
+            sortedNames.forEach(nama => {
                 let netto = rekap[nama].masuk - rekap[nama].keluar;
                 html += `<tr>
                     <td class="border text-[9pt] font-medium">${nama}</td>
@@ -834,7 +843,7 @@
                     <td class="border text-[9pt]">${rekap[nama].keluar}</td>
                     <td class="border text-[9pt] font-bold underline cursor-pointer hover:opacity-80 ${netto < 0 ? 'text-red-600' : 'text-green-600'}" onclick="showBreakdownProyek('${nama}')">${netto}</td>
                 </tr>`;
-            }
+            });
             html += `</tbody></table></div>`;
             document.getElementById('main-content').innerHTML = html;
         }
