@@ -676,7 +676,6 @@
                         
                         if (effectiveJml !== 0 || selectedGudang === "") {
                             breakdownList.push({
-                                noDoc: t['No Doc'] || '-',
                                 kode: t['Kode Barang'] || '-',
                                 jumlah: effectiveJml !== 0 ? effectiveJml : jml
                             });
@@ -685,16 +684,30 @@
                 }
             });
 
+            // Agregasi berdasarkan Kode Barang untuk menghitung sisa per kode barang
+            let aggregatedBreakdown = {};
+            breakdownList.forEach(item => {
+                if (!aggregatedBreakdown[item.kode]) {
+                    aggregatedBreakdown[item.kode] = 0;
+                }
+                aggregatedBreakdown[item.kode] += item.jumlah;
+            });
+
             document.getElementById('modal-title').innerText = `Breakdown Stok: ${namaBarang}`;
             document.getElementById('btn-save').classList.add('hidden');
-            let html = `<div class="overflow-x-auto"><table class="w-full text-left border-collapse border border-gray-200 text-[9pt] table-compact"><thead class="bg-gray-100"><tr><th class="border text-[9pt] font-bold uppercase text-gray-600">No Doc</th><th class="border text-[9pt] font-bold uppercase text-gray-600">Kode Barang</th><th class="border text-[9pt] font-bold uppercase text-gray-600">Jumlah</th></tr></thead><tbody>`;
+            let html = `<div class="overflow-x-auto"><table class="w-full text-left border-collapse border border-gray-200 text-[9pt] table-compact"><thead class="bg-gray-100"><tr><th class="border text-[9pt] font-bold uppercase text-gray-600">Kode Barang</th><th class="border text-[9pt] font-bold uppercase text-gray-600">Sisa</th></tr></thead><tbody>`;
             
-            if(breakdownList.length > 0) {
-                breakdownList.forEach(item => {
-                    html += `<tr><td class="border text-[9pt] font-medium">${item.noDoc}</td><td class="border text-[9pt]">${item.kode}</td><td class="border text-[9pt] font-bold">${item.jumlah}</td></tr>`;
-                });
-            } else {
-                html += `<tr><td colspan="3" class="text-center p-4 text-gray-400">Tidak ada data breakdown</td></tr>`;
+            let hasData = false;
+            for (let kode in aggregatedBreakdown) {
+                let sisa = aggregatedBreakdown[kode];
+                if (sisa > 0) {
+                    hasData = true;
+                    html += `<tr><td class="border text-[9pt] font-medium">${kode}</td><td class="border text-[9pt] font-bold">${sisa}</td></tr>`;
+                }
+            }
+
+            if(!hasData) {
+                html += `<tr><td colspan="2" class="text-center p-4 text-gray-400">Tidak ada data breakdown</td></tr>`;
             }
 
             html += `</tbody></table></div>`;
@@ -759,7 +772,6 @@
                         if(t['Tipe Transaksi'] === 'Keluar') effectiveJml = -jml;
 
                         breakdownList.push({
-                            noDoc: t['No Doc'] || '-',
                             kode: t['Kode Barang'] || '-',
                             jumlah: effectiveJml !== 0 ? effectiveJml : jml
                         });
@@ -767,6 +779,15 @@
                 }
             });
             
+            // Agregasi berdasarkan Kode Barang untuk menghitung sisa per kode barang pada proyek
+            let aggregatedBreakdown = {};
+            breakdownList.forEach(item => {
+                if (!aggregatedBreakdown[item.kode]) {
+                    aggregatedBreakdown[item.kode] = 0;
+                }
+                aggregatedBreakdown[item.kode] += item.jumlah;
+            });
+
             document.getElementById('modal-title').innerText = `Breakdown Stok Proyek: ${namaBarang}`;
             document.getElementById('btn-save').classList.add('hidden');
             
@@ -775,19 +796,23 @@
                     <table class="w-full text-left border-collapse border border-gray-200 text-[9pt] table-compact">
                         <thead class="bg-gray-100">
                             <tr>
-                                <th class="border text-[9pt] font-bold uppercase text-gray-600">No Doc</th>
                                 <th class="border text-[9pt] font-bold uppercase text-gray-600">Kode Barang</th>
-                                <th class="border text-[9pt] font-bold uppercase text-gray-600">Jumlah</th>
+                                <th class="border text-[9pt] font-bold uppercase text-gray-600">Sisa</th>
                             </tr>
                         </thead>
                         <tbody>`;
                         
-            if(breakdownList.length > 0) {
-                breakdownList.forEach(item => {
-                    html += `<tr><td class="border text-[9pt] font-medium">${item.noDoc}</td><td class="border text-[9pt]">${item.kode}</td><td class="border text-[9pt] font-bold">${item.jumlah}</td></tr>`;
-                });
-            } else {
-                html += `<tr><td colspan="3" class="text-center p-4 text-gray-400">Tidak ada data breakdown proyek</td></tr>`;
+            let hasData = false;
+            for (let kode in aggregatedBreakdown) {
+                let sisa = aggregatedBreakdown[kode];
+                if (sisa > 0) {
+                    hasData = true;
+                    html += `<tr><td class="border text-[9pt] font-medium">${kode}</td><td class="border text-[9pt] font-bold">${sisa}</td></tr>`;
+                }
+            }
+
+            if(!hasData) {
+                html += `<tr><td colspan="2" class="text-center p-4 text-gray-400">Tidak ada data breakdown proyek</td></tr>`;
             }
             
             html += `</tbody></table></div>`;
