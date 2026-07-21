@@ -631,11 +631,34 @@
             namaInput.value = '';
 
             if (jenisVal && kategoriVal) {
+                const tipeTransaksi = document.querySelector('select[name="Tipe Transaksi"]')?.value || 'Masuk';
                 let stockMap = getAvailableStockByCode(); 
 
                 let filteredBarang = (db.barang || []).filter(b => {
                     if (b['Kategori'] !== kategoriVal || b['Jenis'] !== jenisVal) return false;
                     
+                    // Kondisi khusus: Jika Tipe Transaksi 'Masuk' dan Kategori 'Cable' (case-insensitive),
+                    // jangan tampilkan kode barang yang sisanya > 0.
+                    if (tipeTransaksi === 'Masuk' && kategoriVal.toLowerCase() === 'cable') {
+                        // Hitung total sisa saat ini untuk kode barang tersebut secara global/keseluruhan
+                        let globalStockMap = {};
+                        (db.transaksi || []).forEach(t => {
+                            let kode = t['Kode Barang'];
+                            if (!kode) return;
+                            let jml = parseInt(t['Jumlah'] || 0);
+                            if (!globalStockMap[kode]) globalStockMap[kode] = 0;
+                            if (t['Tipe Transaksi'] === 'Masuk') globalStockMap[kode] += jml;
+                            else if (t['Tipe Transaksi'] === 'Keluar') globalStockMap[kode] -= jml;
+                            else if (t['Tipe Transaksi'] === 'Transfer') {
+                                // Transfer murni tidak mengubah total stok global, tapi kita hitung standard masuk/keluar
+                            }
+                        });
+                        let currentSisa = globalStockMap[b['Kode Barang']] || 0;
+                        if (currentSisa > 0) {
+                            return false; // Sembunyikan jika sisa > 0
+                        }
+                    }
+
                     if (stockMap !== null) {
                         let currentSisa = stockMap[b['Kode Barang']] || 0;
                         if (currentSisa <= 0) return false;
@@ -1049,7 +1072,7 @@
                 for(let i = 0; i < kats.length; i++){
                     newItems.push({
                         "Tanggal": tgl,
-                        "No Doc": docVal,
+                        "No Doc": docValid || docVal,
                         "ID DO-TO": idDoTo,
                         "Tipe Transaksi": tipe,
                         "Kode Project": proj,
