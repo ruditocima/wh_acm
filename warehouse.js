@@ -61,7 +61,7 @@ function printNotaPDF(t) {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF('p', 'pt', 'a4'); 
     
-    // Ambil semua item berdasarkan No Doc yang sama[cite: 4]
+    // 1. Ambil semua rincian item untuk ditampilkan utuh di tabel utama
     let allItems = db.transaksi.filter(x => x['No Doc'] === t['No Doc']);
     
     doc.setFont("helvetica", "normal"); 
@@ -77,6 +77,7 @@ function printNotaPDF(t) {
     doc.text(`Tanggal : ${t['Tanggal'] || '-'}`, 550, 95, { align: 'right' });
     doc.text(`Tipe Transaksi : ${t['Tipe Transaksi'] || '-'}`, 550, 110, { align: 'right' });
 
+    // Memasukkan seluruh rincian ke dalam array tabel
     let bodyData = [];
     allItems.forEach(item => {
         bodyData.push([
@@ -90,7 +91,7 @@ function printNotaPDF(t) {
         ]);
     });
     
-    // Baris kosong minimum agar tabel tetap rapi
+    // Baris kosong minimum agar tabel tetap rapi (12 baris)
     while (bodyData.length < 12) {
         bodyData.push(['', '', '', '', '', '', '']);
     }
@@ -105,32 +106,41 @@ function printNotaPDF(t) {
         columnStyles: { 1: { halign: 'left' } }
     });
 
-    // Menghitung total jumlah per Nama Barang untuk catatan di bawah tabel[cite: 4]
-    let summaryMap = {};
+    // 2. Logika untuk mencari 'Nama Barang' yang sama, lalu menjumlahkannya
+    let counts = {};
+    let sums = {};
     allItems.forEach(item => {
-        let namaBarang = item['Nama Barang (Auto)'] || '-';
-        let jumlah = parseInt(item['Jumlah'] || 0);
-        if (!summaryMap[namaBarang]) {
-            summaryMap[namaBarang] = 0;
-        }
-        summaryMap[namaBarang] += jumlah;
+        let nama = item['Nama Barang (Auto)'] || '-';
+        let qty = parseInt(item['Jumlah'] || 0);
+        counts[nama] = (counts[nama] || 0) + 1;
+        sums[nama] = (sums[nama] || 0) + qty;
     });
 
-    let currentY = doc.lastAutoTable.finalY + 15;
-    
-    doc.setFont("helvetica", "bold");
-    doc.text("Note :", 40, currentY);
-    currentY += 12;
+    // Kumpulkan teks barang yang lebih dari 1 kali diinput
+    let noteTexts = [];
+    for (let nama in counts) {
+        if (counts[nama] > 1) { 
+            noteTexts.push(`${nama} : ${sums[nama]}`);
+        }
+    }
 
-    doc.setFont("helvetica", "normal");
-    for (let [nama, total] of Object.entries(summaryMap)) {
-        doc.text(`- ${nama} : ${total}`, 50, currentY);
+    // Posisi Y di bawah tabel (Baris ke-13 di luar garis tabel)
+    let currentY = doc.lastAutoTable.finalY + 15; 
+    
+    // 3. Tulis "Note" jika ada barang yang sama
+    if (noteTexts.length > 0) {
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(9);
+        doc.text(`Note Total (Barang Sama) : ${noteTexts.join(', ')}`, 40, currentY);
+        currentY += 20; // Tambah jarak bawah sebelum area tanda tangan
+    } else {
         currentY += 10;
     }
 
-    // Posisi tanda tangan di bawah catatan
-    let finalY = currentY + 20;
+    // 4. Area Tanda Tangan
+    let finalY = currentY + 10;
     doc.setFontSize(8); 
+    doc.setFont("helvetica", "normal"); 
 
     doc.text("Pickup by,", 40, finalY);
     let namaPetugas = t['Petugas'] || '';
