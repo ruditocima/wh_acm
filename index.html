@@ -269,7 +269,6 @@
                 ]);
             });
             
-            // Diperbarui menjadi 12 baris kosong
             while (bodyData.length < 12) {
                 bodyData.push(['', '', '', '', '', '', '']);
             }
@@ -284,7 +283,6 @@
                 columnStyles: { 1: { halign: 'left' } }
             });
 
-            // Dinaikkan sekitar 2 baris (dari +68 menjadi +40)
             let finalY = doc.lastAutoTable.finalY + 40;
             doc.setFontSize(8); 
 
@@ -336,7 +334,6 @@
                 }
             });
 
-            // Urutkan key (Nama Barang) secara ascending (A-Z)
             let sortedKeys = Object.keys(rekap).sort((a, b) => a.localeCompare(b));
 
             let csv = 'Nama Barang,Masuk,Keluar,T. Masuk,T. Keluar,Sisa\n';
@@ -525,6 +522,52 @@
                 tbody.innerHTML = '';
                 addTransactionRow();
             }
+            onGudangAsalChange();
+        }
+
+        // Fungsi Filter Project berdasarkan Gudang Asal ketika Tipe Transaksi 'Keluar'
+        function onGudangAsalChange() {
+            const tipeTransaksi = document.querySelector('select[name="Tipe Transaksi"]')?.value;
+            const gudangAsal = document.querySelector('select[name="Gudang Asal"]')?.value;
+            const projectSelect = document.querySelector('select[name="Kode Project"]');
+            
+            if (!projectSelect) return;
+
+            const currentSelectedProject = projectSelect.value;
+            projectSelect.innerHTML = '<option value="">-- Pilih --</option>';
+
+            // Jika tipe transaksi adalah 'Keluar', terapkan aturan filter
+            if (tipeTransaksi === 'Keluar') {
+                // Ketentuan 6: Apabila Gudang Asal tidak dipilih, jangan tampilkan Kode Project
+                if (!gudangAsal) {
+                    return;
+                }
+
+                let targetPrefix = "";
+                if (gudangAsal.startsWith('ACM-ACH')) targetPrefix = 'ACH';
+                else if (gudangAsal.startsWith('ACM-PLB')) targetPrefix = 'PLB';
+                else if (gudangAsal.startsWith('ACM-PMN')) targetPrefix = 'PMN';
+                else if (gudangAsal.startsWith('ACM-BKT')) targetPrefix = 'BKT';
+                else if (gudangAsal.startsWith('ACM-PAD')) targetPrefix = 'PAD';
+
+                // Ketentuan 7: Jangan tampilkan Kode Project apabila Gudang Asal selain dari kode di atas
+                if (!targetPrefix) {
+                    return;
+                }
+
+                let filteredProjects = (db.project || []).filter(p => (p['Kode Project'] || "").startsWith(targetPrefix));
+
+                filteredProjects.forEach(p => {
+                    let isSelected = (p['Kode Project'] === currentSelectedProject) ? 'selected' : '';
+                    projectSelect.innerHTML += `<option value="${p['Kode Project']}" ${isSelected}>${p['Kode Project']} - ${p['Nama Project']}</option>`;
+                });
+            } else {
+                // Jika bukan tipe 'Keluar', tampilkan semua project seperti biasa
+                (db.project || []).forEach(p => {
+                    let isSelected = (p['Kode Project'] === currentSelectedProject) ? 'selected' : '';
+                    projectSelect.innerHTML += `<option value="${p['Kode Project']}" ${isSelected}>${p['Kode Project']} - ${p['Nama Project']}</option>`;
+                });
+            }
         }
 
         function getAvailableStockByCode() {
@@ -640,8 +683,6 @@
                 let filteredBarang = (db.barang || []).filter(b => {
                     if (b['Kategori'] !== kategoriVal || b['Jenis'] !== jenisVal) return false;
                     
-                    // Kondisi khusus: Jika Tipe Transaksi 'Masuk' dan Kategori 'Cable' (case-insensitive),
-                    // jangan tampilkan kode barang yang sisanya > 0.
                     if (tipeTransaksi === 'Masuk' && kategoriVal.toLowerCase() === 'cable') {
                         let globalStockMap = {};
                         (db.transaksi || []).forEach(t => {
@@ -651,13 +692,11 @@
                             if (!globalStockMap[kode]) globalStockMap[kode] = 0;
                             if (t['Tipe Transaksi'] === 'Masuk') globalStockMap[kode] += jml;
                             else if (t['Tipe Transaksi'] === 'Keluar') globalStockMap[kode] -= jml;
-                            else if (t['Tipe Transaksi'] === 'Transfer') {
-                                // Transfer murni tidak mengubah total stok global
-                            }
+                            else if (t['Tipe Transaksi'] === 'Transfer') {}
                         });
                         let currentSisa = globalStockMap[b['Kode Barang']] || 0;
                         if (currentSisa > 0) {
-                            return false; // Sembunyikan jika sisa > 0
+                            return false;
                         }
                     }
 
@@ -701,9 +740,7 @@
                 }
             });
 
-            // Urutkan key (Nama Barang) secara ascending (A-Z)
             let sortedNames = Object.keys(rekap).sort((a, b) => a.localeCompare(b));
-
             let options = (db.gudang || []).map(g => `<option value="${g['Kode Gudang']}" ${selectedGudang === g['Kode Gudang'] ? 'selected' : ''}>${g['Nama Gudang']}</option>`).join('');
             
             let html = `
@@ -811,9 +848,7 @@
                 if(t['Tipe Transaksi'] === 'Keluar') rekap[nama].keluar += jml;
             });
 
-            // Urutkan key (Nama Barang) secara ascending (A-Z)
             let sortedNames = Object.keys(rekap).sort((a, b) => a.localeCompare(b));
-
             let options = (db.project || []).map(p => `<option value="${p['Kode Project']}" ${selectedProject === p['Kode Project'] ? 'selected' : ''}>${p['Nama Project']}</option>`).join('');
             let html = `
                 <div class="sticky top-20 z-40 bg-white pt-2 pb-4 mb-4 border-b border-gray-200">
@@ -954,7 +989,7 @@
                         </div>
                         <div>
                             <label class="block text-[8pt] font-medium text-gray-700 mb-1">Tipe Transaksi</label>
-                            <select name="Tipe Transaksi" onchange="onTipeTransaksiChange()" class="w-full border p-1.5 rounded text-[8pt]">
+                            <select name="Tipe Transaksi" onchange="onTipeTransaksiChange(); onGudangAsalChange();" class="w-full border p-1.5 rounded text-[8pt]">
                                 <option value="Masuk" ${item['Tipe Transaksi'] === 'Masuk' ? 'selected' : ''}>Masuk</option>
                                 <option value="Keluar" ${item['Tipe Transaksi'] === 'Keluar' ? 'selected' : ''}>Keluar</option>
                                 <option value="Transfer" ${item['Tipe Transaksi'] === 'Transfer' ? 'selected' : ''}>Transfer</option>
@@ -969,7 +1004,7 @@
                         </div>
                         <div>
                             <label class="block text-[8pt] font-medium text-gray-700 mb-1">Gudang Asal</label>
-                            <select name="Gudang Asal" onchange="onTipeTransaksiChange()" class="w-full border p-1.5 rounded text-[8pt]">
+                            <select name="Gudang Asal" onchange="onTipeTransaksiChange(); onGudangAsalChange();" class="w-full border p-1.5 rounded text-[8pt]">
                                 <option value="">-- Pilih --</option>
                                 ${(db.gudang || []).map(g => `<option value="${g['Kode Gudang']}" ${item['Gudang Asal'] === g['Kode Gudang'] ? 'selected' : ''}>${g['Nama Gudang']}</option>`).join('')}
                             </select>
@@ -1015,6 +1050,9 @@
                 `;
                 form.innerHTML = headerHTML;
                 document.getElementById('modal').classList.remove('hidden');
+
+                // Terapkan filter project sesuai gudang asal saat modal terbuka
+                onGudangAsalChange();
 
                 if (index === -1) {
                     addTransactionRow();
@@ -1081,7 +1119,7 @@
                 for(let i = 0; i < kats.length; i++){
                     newItems.push({
                         "Tanggal": tgl,
-                        "No Doc": docValid || docVal,
+                        "No Doc": docVal,
                         "ID DO-TO": idDoTo,
                         "Tipe Transaksi": tipe,
                         "Kode Project": proj,
