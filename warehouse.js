@@ -127,11 +127,11 @@ function printNotaPDF(t) {
     // Posisi Y di bawah tabel (Baris ke-13 di luar garis tabel)
     let currentY = doc.lastAutoTable.finalY + 15; 
     
-    // 3. Tulis "Note" jika ada barang yang sama
+    // 3. Tulis "Note :" dengan font normal ukuran 8 (sama persis seperti isi tabel)
     if (noteTexts.length > 0) {
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(9);
-        doc.text(`Note Total (Barang Sama) : ${noteTexts.join(', ')}`, 40, currentY);
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(8);
+        doc.text(`Note : ${noteTexts.join(', ')}`, 40, currentY);
         currentY += 20; // Tambah jarak bawah sebelum area tanda tangan
     } else {
         currentY += 10;
