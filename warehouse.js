@@ -231,7 +231,6 @@ function renderTable(section, searchQuery = '') {
     
     if (!db[section]) db[section] = [];
 
-    // Mengambil filter gudang yang dipilih (jika ada) khusus untuk transaksi
     const selectedGudangFilter = (section === 'transaksi') ? (document.getElementById('transaksi-gudang-filter')?.value || '') : '';
 
     if (section === 'transaksi') {
@@ -265,12 +264,10 @@ function renderTable(section, searchQuery = '') {
     
     let data = db[section];
 
-    // Filter berdasarkan Search Query (No Doc)
     if (section === 'transaksi' && searchQuery) {
         data = data.filter(item => (item['No Doc'] || '').toLowerCase().includes(searchQuery));
     }
 
-    // Filter tambahan berdasarkan Gudang yang dipilih pada Data Transaksi
     if (section === 'transaksi' && selectedGudangFilter) {
         data = data.filter(item => 
             item['Gudang Asal'] === selectedGudangFilter || item['Gudang Tujuan'] === selectedGudangFilter
@@ -439,7 +436,7 @@ function getAvailableStockByCode() {
     const tipeTransaksi = document.querySelector('select[name="Tipe Transaksi"]')?.value || 'Masuk';
     const selectedGudangAsal = document.querySelector('select[name="Gudang Asal"]')?.value || '';
     
-    if (tipeTransaksi !== 'Keluar') return null;
+    if (tipeTransaksi !== 'Keluar' && tipeTransaksi !== 'Transfer') return null;
 
     let stockMap = {};
     (db.transaksi || []).forEach(t => {
@@ -449,21 +446,12 @@ function getAvailableStockByCode() {
 
         if (!stockMap[kode]) stockMap[kode] = 0;
 
-        if (t['Tipe Transaksi'] === 'Masuk') {
-            if (selectedGudangAsal === "" || t['Gudang Tujuan'] === selectedGudangAsal) {
-                stockMap[kode] += jml;
-            }
-        } else if (t['Tipe Transaksi'] === 'Keluar') {
-            if (selectedGudangAsal === "" || t['Gudang Asal'] === selectedGudangAsal) {
-                stockMap[kode] -= jml;
-            }
-        } else if (t['Tipe Transaksi'] === 'Transfer') {
-            if (selectedGudangAsal !== "") {
-                if (t['Gudang Asal'] === selectedGudangAsal) stockMap[kode] -= jml;
-                if (t['Gudang Tujuan'] === selectedGudangAsal) stockMap[kode] += jml;
-            } else {
-                stockMap[kode] -= jml; 
-            }
+        if (selectedGudangAsal !== "") {
+            if (t['Gudang Tujuan'] === selectedGudangAsal) stockMap[kode] += jml;
+            if (t['Gudang Asal'] === selectedGudangAsal) stockMap[kode] -= jml;
+        } else {
+            if (t['Tipe Transaksi'] === 'Masuk') stockMap[kode] += jml;
+            if (t['Tipe Transaksi'] === 'Keluar') stockMap[kode] -= jml;
         }
     });
 
@@ -472,7 +460,7 @@ function getAvailableStockByCode() {
 
 function validateCurrentRows() {
     const tipeTransaksi = document.querySelector('select[name="Tipe Transaksi"]')?.value || 'Masuk';
-    if (tipeTransaksi !== 'Keluar') return true;
+    if (tipeTransaksi !== 'Keluar' && tipeTransaksi !== 'Transfer') return true;
 
     let stockMap = getAvailableStockByCode();
     if (!stockMap) return true;
@@ -498,6 +486,13 @@ function validateCurrentRows() {
 function addTransactionRow(item = {}) {
     const tbody = document.getElementById('item-tbody');
     if (!tbody) return;
+
+    // Validasi baris yang sudah ada sebelum menambah baris baru
+    if (tbody.children.length > 0) {
+        if (!validateCurrentRows()) {
+            return; // Gagalkan tambah baris jika stok kurang
+        }
+    }
 
     let tr = document.createElement('tr');
     
@@ -563,7 +558,7 @@ function onKategoriChangeRow(el, preselectJenis = '', preselectKode = '') {
 
 function onJenisChangeRow(el, preselectKode = '') {
     let tr = el.closest('tr');
-    let kategoriVal = tr.querySelector('select[name="Kategori[]"]').value;
+    let kategoriVal = tr.querySelector('select[name="Kategori[]"]')?.value || '';
     let jenisVal = el.value;
     let kodeSelect = tr.querySelector('select[name="Kode Barang[]"]');
     let namaInput = tr.querySelector('input[name="Nama Barang (Auto)[]"]');
@@ -574,7 +569,6 @@ function onJenisChangeRow(el, preselectKode = '') {
     namaInput.value = '';
 
     if (jenisVal && kategoriVal) {
-        // Hitung stok berdasarkan Gudang Asal/Tujuan yang sedang aktif di Form
         const tipeTransaksi = document.querySelector('select[name="Tipe Transaksi"]')?.value || 'Masuk';
         const selectedGudangAsal = document.querySelector('select[name="Gudang Asal"]')?.value || '';
         const selectedGudangTujuan = document.querySelector('select[name="Gudang Tujuan"]')?.value || '';
@@ -586,26 +580,21 @@ function onJenisChangeRow(el, preselectKode = '') {
             let jml = parseInt(t['Jumlah'] || 0);
             if (!stockMap[kode]) stockMap[kode] = 0;
 
-            if (t['Tipe Transaksi'] === 'Masuk') {
-                if (selectedGudangTujuan === "" || t['Gudang Tujuan'] === selectedGudangTujuan) {
-                    stockMap[kode] += jml;
+            if (tipeTransaksi === 'Keluar' || tipeTransaksi === 'Transfer') {
+                if (selectedGudangAsal !== "") {
+                    if (t['Gudang Tujuan'] === selectedGudangAsal) stockMap[kode] += jml;
+                    if (t['Gudang Asal'] === selectedGudangAsal) stockMap[kode] -= jml;
+                } else {
+                    if (t['Tipe Transaksi'] === 'Masuk') stockMap[kode] += jml;
+                    if (t['Tipe Transaksi'] === 'Keluar') stockMap[kode] -= jml;
                 }
-            } else if (t['Tipe Transaksi'] === 'Keluar') {
-                if (selectedGudangAsal === "" || t['Gudang Asal'] === selectedGudangAsal) {
-                    stockMap[kode] -= jml;
-                }
-            } else if (t['Tipe Transaksi'] === 'Transfer') {
-                // Jika sedang memilih gudang asal, kurangi stok di gudang tersebut
-                if (selectedGudangAsal !== "" && t['Gudang Asal'] === selectedGudangAsal) {
-                    stockMap[kode] -= jml;
-                }
-                // Jika gudang tersebut bertindak sebagai tujuan transfer, tambah stoknya
-                if (selectedGudangTujuan !== "" && t['Gudang Tujuan'] === selectedGudangTujuan) {
-                    stockMap[kode] += jml;
-                }
-                // Jika belum memilih gudang sama sekali
-                if (selectedGudangAsal === "" && selectedGudangTujuan === "") {
-                    stockMap[kode] -= jml; 
+            } else if (tipeTransaksi === 'Masuk') {
+                if (selectedGudangTujuan !== "") {
+                    if (t['Gudang Tujuan'] === selectedGudangTujuan) stockMap[kode] += jml;
+                    if (t['Gudang Asal'] === selectedGudangTujuan) stockMap[kode] -= jml;
+                } else {
+                    if (t['Tipe Transaksi'] === 'Masuk') stockMap[kode] += jml;
+                    if (t['Tipe Transaksi'] === 'Keluar') stockMap[kode] -= jml;
                 }
             }
         });
@@ -624,14 +613,14 @@ function onJenisChangeRow(el, preselectKode = '') {
 
             let currentSisa = stockMap[b['Kode Barang']] || 0;
 
-            // Sembunyikan jika stok <= 0 untuk transaksi Keluar atau Transfer
+            // 2. Sembunyikan Kode Barang apabila sisa stok <= 0 di gudang asal saat Keluar atau Transfer (Semua Kategori)
             if (tipeTransaksi === 'Keluar' || tipeTransaksi === 'Transfer') {
                 if (currentSisa <= 0) return false;
             }
 
-            // Aturan khusus Masuk & Kategori 'cable'
+            // 3. Sembunyikan Kode Barang apabila sisa stok > 0 di gudang tujuan saat Masuk (Khusus Kategori Cable)
             if (tipeTransaksi === 'Masuk' && kategoriVal.toLowerCase() === 'cable') {
-                if (currentSisa !== 0) return false;
+                if (currentSisa > 0) return false;
             }
 
             return true;
@@ -643,6 +632,7 @@ function onJenisChangeRow(el, preselectKode = '') {
         if(preselectKode) updateNamaBarangRow(kodeSelect);
     }
 }
+
 function updateNamaBarangRow(el) {
     let tr = el.closest('tr');
     let kode = el.value;
@@ -1053,7 +1043,7 @@ function saveData() {
 
     if (currentSection === 'transaksi') {
         if (!validateCurrentRows()) {
-            return; 
+            return; // Gagalkan proses simpan jika stok kurang
         }
     }
 
