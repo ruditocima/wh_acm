@@ -204,8 +204,6 @@ function exportRekapStokCSV() {
 }
 
 function renderDashboard() {
-    renderTable('gudang');
-}
     const mainContent = document.getElementById('main-content');
     if (!mainContent) return;
     mainContent.innerHTML = `
@@ -233,11 +231,10 @@ function renderTable(section, searchQuery = '') {
     
     if (!db[section]) db[section] = [];
 
-    const selectedGudangFilter = (section === 'transaksi') ? (document.getElementById('transaksi-gudang-filter')?.value || '') : '';
-
     if (section === 'transaksi') {
         db[section].sort((a, b) => new Date(b['Tanggal'] || 0) - new Date(a['Tanggal'] || 0));
     } else if (section === 'barang') {
+        // Sorting ascending berjenjang: 1. Kategori -> 2. Jenis -> 3. Kode Barang
         db[section].sort((a, b) => {
             let catA = (a['Kategori'] || "").toLowerCase();
             let catB = (b['Kategori'] || "").toLowerCase();
@@ -268,27 +265,15 @@ function renderTable(section, searchQuery = '') {
     if (section === 'transaksi' && searchQuery) {
         data = data.filter(item => (item['No Doc'] || '').toLowerCase().includes(searchQuery));
     }
-
-    if (section === 'transaksi' && selectedGudangFilter) {
-        data = data.filter(item => 
-            item['Gudang Asal'] === selectedGudangFilter || item['Gudang Tujuan'] === selectedGudangFilter
-        );
-    }
     
     let exportBtn = (section === 'transaksi' || section === 'barang') ? `<button onclick="exportCSV()" class="bg-green-600 text-white px-4 py-2 rounded shadow hover:bg-green-500 mr-2 text-[9pt]">Export CSV</button>` : '';
     
     let searchBar = '';
     if (section === 'transaksi') {
         const existingSearchDoc = document.getElementById('search-doc');
-        const gudangOptions = (db.gudang || []).map(g => `<option value="${g['Kode Gudang']}" ${selectedGudangFilter === g['Kode Gudang'] ? 'selected' : ''}>${g['Nama Gudang']}</option>`).join('');
-        
         searchBar = `
-            <div class="flex flex-wrap items-center gap-2 mr-4">
-                <select id="transaksi-gudang-filter" onchange="renderTable('transaksi')" class="border p-2 rounded text-[9pt]">
-                    <option value="">-- Semua Gudang --</option>
-                    ${gudangOptions}
-                </select>
-                <input type="text" id="search-doc" value="${searchQuery ? (existingSearchDoc?.value || '') : ''}" placeholder="Cari No Doc..." class="border p-2 rounded text-[9pt] w-36 md:w-48">
+            <div class="flex items-center space-x-2 mr-4">
+                <input type="text" id="search-doc" value="${searchQuery ? (existingSearchDoc?.value || '') : ''}" placeholder="Cari No Doc..." class="border p-2 rounded text-[9pt] w-48 md:w-64">
                 <button onclick="searchTransaksi()" class="bg-blue-600 text-white px-4 py-2 rounded shadow hover:bg-blue-500 text-[9pt]">Cari</button>
             </div>
         `;
@@ -575,6 +560,7 @@ function onJenisChangeRow(el, preselectKode = '') {
         const tipeTransaksi = document.querySelector('select[name="Tipe Transaksi"]')?.value || 'Masuk';
         const selectedGudangTujuan = document.querySelector('select[name="Gudang Tujuan"]')?.value || '';
 
+        // Hitung stok global atau berdasarkan Gudang Tujuan untuk transaksi Masuk
         let stockMap = {};
         (db.transaksi || []).forEach(t => {
             let kode = t['Kode Barang'];
@@ -615,11 +601,14 @@ function onJenisChangeRow(el, preselectKode = '') {
 
             let currentSisa = stockMap[b['Kode Barang']] || 0;
 
+            // Khusus Tipe Transaksi 'Masuk' dan Kategori 'cable':
+            // Hanya tampilkan jika sisa stok sama dengan 0 (= 0) di Gudang Tujuan
             if (tipeTransaksi === 'Masuk' && kategoriVal.toLowerCase() === 'cable') {
                 if (currentSisa !== 0) {
                     return false;
                 }
             } else {
+                // Aturan standar untuk kategori atau tipe transaksi lainnya
                 if (tipeTransaksi === 'Keluar' && currentSisa <= 0) return false;
             }
 
@@ -632,7 +621,6 @@ function onJenisChangeRow(el, preselectKode = '') {
         if(preselectKode) updateNamaBarangRow(kodeSelect);
     }
 }
-
 function updateNamaBarangRow(el) {
     let tr = el.closest('tr');
     let kode = el.value;
@@ -1124,4 +1112,3 @@ function saveData() {
         renderTable(currentSection); 
     }
 }
-```[cite: 3]
