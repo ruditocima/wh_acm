@@ -557,8 +557,18 @@ function onJenisChangeRow(el, preselectKode = '') {
         const tipeTransaksi = document.querySelector('select[name="Tipe Transaksi"]')?.value || 'Masuk';
         let stockMap = getAvailableStockByCode(); 
 
+        let selectedKodeInRows = new Set();
+        document.querySelectorAll('#item-tbody tr').forEach(row => {
+            let sel = row.querySelector('select[name="Kode Barang[]"]');
+            if (sel && sel.value && row !== tr) {
+                selectedKodeInRows.add(sel.value);
+            }
+        });
+
         let filteredBarang = (db.barang || []).filter(b => {
             if (b['Kategori'] !== kategoriVal || b['Jenis'] !== jenisVal) return false;
+            
+            if (selectedKodeInRows.has(b['Kode Barang'])) return false;
             
             if (tipeTransaksi === 'Masuk' && kategoriVal.toLowerCase() === 'cable') {
                 let globalStockMap = {};
