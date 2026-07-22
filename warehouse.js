@@ -231,6 +231,7 @@ function renderTable(section, searchQuery = '') {
     
     if (!db[section]) db[section] = [];
 
+    // Mengambil filter gudang yang dipilih (jika ada) khusus untuk transaksi
     const selectedGudangFilter = (section === 'transaksi') ? (document.getElementById('transaksi-gudang-filter')?.value || '') : '';
 
     if (section === 'transaksi') {
@@ -264,10 +265,12 @@ function renderTable(section, searchQuery = '') {
     
     let data = db[section];
 
+    // Filter berdasarkan Search Query (No Doc)
     if (section === 'transaksi' && searchQuery) {
         data = data.filter(item => (item['No Doc'] || '').toLowerCase().includes(searchQuery));
     }
 
+    // Filter tambahan berdasarkan Gudang yang dipilih pada Data Transaksi
     if (section === 'transaksi' && selectedGudangFilter) {
         data = data.filter(item => 
             item['Gudang Asal'] === selectedGudangFilter || item['Gudang Tujuan'] === selectedGudangFilter
@@ -432,21 +435,47 @@ function onGudangAsalChange() {
     }
 }
 
-function validateCurrentRows() {
+function getAvailableStockByCode() {
     const tipeTransaksi = document.querySelector('select[name="Tipe Transaksi"]')?.value || 'Masuk';
-    if (tipeTransaksi !== 'Keluar') return true;
-
-    // Hitung stok sederhana untuk validasi
-    let stockMap = {};
     const selectedGudangAsal = document.querySelector('select[name="Gudang Asal"]')?.value || '';
+    
+    if (tipeTransaksi !== 'Keluar') return null;
+
+    let stockMap = {};
     (db.transaksi || []).forEach(t => {
         let kode = t['Kode Barang'];
         if (!kode) return;
         let jml = parseInt(t['Jumlah'] || 0);
+
         if (!stockMap[kode]) stockMap[kode] = 0;
-        if (t['Tipe Transaksi'] === 'Masuk' && (selectedGudangAsal === "" || t['Gudang Tujuan'] === selectedGudangAsal)) stockMap[kode] += jml;
-        if (t['Tipe Transaksi'] === 'Keluar' && (selectedGudangAsal === "" || t['Gudang Asal'] === selectedGudangAsal)) stockMap[kode] -= jml;
+
+        if (t['Tipe Transaksi'] === 'Masuk') {
+            if (selectedGudangAsal === "" || t['Gudang Tujuan'] === selectedGudangAsal) {
+                stockMap[kode] += jml;
+            }
+        } else if (t['Tipe Transaksi'] === 'Keluar') {
+            if (selectedGudangAsal === "" || t['Gudang Asal'] === selectedGudangAsal) {
+                stockMap[kode] -= jml;
+            }
+        } else if (t['Tipe Transaksi'] === 'Transfer') {
+            if (selectedGudangAsal !== "") {
+                if (t['Gudang Asal'] === selectedGudangAsal) stockMap[kode] -= jml;
+                if (t['Gudang Tujuan'] === selectedGudangAsal) stockMap[kode] += jml;
+            } else {
+                stockMap[kode] -= jml; 
+            }
+        }
     });
+
+    return stockMap;
+}
+
+function validateCurrentRows() {
+    const tipeTransaksi = document.querySelector('select[name="Tipe Transaksi"]')?.value || 'Masuk';
+    if (tipeTransaksi !== 'Keluar') return true;
+
+    let stockMap = getAvailableStockByCode();
+    if (!stockMap) return true;
 
     const rows = document.querySelectorAll('#item-tbody tr');
     for (let row of rows) {
@@ -528,10 +557,7 @@ function onKategoriChangeRow(el, preselectJenis = '', preselectKode = '') {
         filteredJenis.forEach(j => {
             jenisSelect.innerHTML += `<option value="${j}" ${preselectJenis === j ? 'selected' : ''}>${j}</option>`;
         });
-        if(preselectJenis) {
-            jenisSelect.value = preselectJenis;
-            onJenisChangeRow(jenisSelect, preselectKode);
-        }
+        if(preselectJenis) onJenisChangeRow(jenisSelect, preselectKode);
     }
 }
 
@@ -548,6 +574,7 @@ function onJenisChangeRow(el, preselectKode = '') {
     namaInput.value = '';
 
     if (jenisVal && kategoriVal) {
+        // Hitung stok berdasarkan Gudang Asal/Tujuan yang sedang aktif di Form
         const tipeTransaksi = document.querySelector('select[name="Tipe Transaksi"]')?.value || 'Masuk';
         const selectedGudangAsal = document.querySelector('select[name="Gudang Asal"]')?.value || '';
         const selectedGudangTujuan = document.querySelector('select[name="Gudang Tujuan"]')?.value || '';
@@ -568,9 +595,18 @@ function onJenisChangeRow(el, preselectKode = '') {
                     stockMap[kode] -= jml;
                 }
             } else if (t['Tipe Transaksi'] === 'Transfer') {
-                if (selectedGudangAsal !== "" && t['Gudang Asal'] === selectedGudangAsal) stockMap[kode] -= jml;
-                if (selectedGudangTujuan !== "" && t['Gudang Tujuan'] === selectedGudangTujuan) stockMap[kode] += jml;
-                if (selectedGudangAsal === "" && selectedGudangTujuan === "") stockMap[kode] -= jml;
+                // Jika sedang memilih gudang asal, kurangi stok di gudang tersebut
+                if (selectedGudangAsal !== "" && t['Gudang Asal'] === selectedGudangAsal) {
+                    stockMap[kode] -= jml;
+                }
+                // Jika gudang tersebut bertindak sebagai tujuan transfer, tambah stoknya
+                if (selectedGudangTujuan !== "" && t['Gudang Tujuan'] === selectedGudangTujuan) {
+                    stockMap[kode] += jml;
+                }
+                // Jika belum memilih gudang sama sekali
+                if (selectedGudangAsal === "" && selectedGudangTujuan === "") {
+                    stockMap[kode] -= jml; 
+                }
             }
         });
 
@@ -588,7 +624,7 @@ function onJenisChangeRow(el, preselectKode = '') {
 
             let currentSisa = stockMap[b['Kode Barang']] || 0;
 
-            // FITUR UTAMA: Sembunyikan barang jika stok <= 0 untuk transaksi Keluar atau Transfer
+            // Sembunyikan jika stok <= 0 untuk transaksi Keluar atau Transfer
             if (tipeTransaksi === 'Keluar' || tipeTransaksi === 'Transfer') {
                 if (currentSisa <= 0) return false;
             }
@@ -604,14 +640,9 @@ function onJenisChangeRow(el, preselectKode = '') {
         filteredBarang.forEach(b => {
             kodeSelect.innerHTML += `<option value="${b['Kode Barang']}" ${preselectKode === b['Kode Barang'] ? 'selected' : ''}>${b['Kode Barang']} - ${b['Nama Barang']}</option>`;
         });
-        
-        if(preselectKode) {
-            kodeSelect.value = preselectKode;
-            updateNamaBarangRow(kodeSelect);
-        }
+        if(preselectKode) updateNamaBarangRow(kodeSelect);
     }
 }
-
 function updateNamaBarangRow(el) {
     let tr = el.closest('tr');
     let kode = el.value;
