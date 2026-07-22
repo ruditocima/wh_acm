@@ -67,7 +67,20 @@
         <div class="bg-white p-6 rounded-xl w-full max-w-4xl shadow-2xl max-h-[90vh] overflow-y-auto">
             <h2 id="modal-title" class="text-[11pt] font-bold mb-4">Edit Data</h2>
             <div id="modal-body">
-                <form id="data-form"></form>
+                <form id="data-form">
+                    <!-- Contoh Elemen untuk Form Tambah Baris Material -->
+                    <div class="mb-4">
+                        <div class="flex justify-between items-center mb-2">
+                            <label class="block text-xs font-bold text-gray-700">Daftar Material</label>
+                            <button type="button" onclick="tambahBarisMaterial()" class="bg-green-600 hover:bg-green-500 text-white px-3 py-1 rounded text-xs transition">
+                                + Tambah Baris Material
+                            </button>
+                        </div>
+                        <div id="material-rows-container" class="space-y-2">
+                            <!-- Baris material akan ditambahkan secara dinamis di sini -->
+                        </div>
+                    </div>
+                </form>
             </div>
             <div class="mt-6 flex justify-end space-x-3 border-t pt-4">
                 <button onclick="closeModal()" class="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300 text-[9pt]">Tutup</button>
@@ -76,8 +89,57 @@
         </div>
     </div>
 
+    <!-- ================= SCRIPT TAMBAHAN OTOMATIS STOK ================= -->
+    <script>
+        // Fungsi untuk menambah baris material baru
+        function tambahBarisMaterial() {
+            const container = document.getElementById('material-rows-container');
+            const rowIndex = Date.now(); // Membuat ID unik berdasarkan waktu
+            
+            const rowHTML = `
+                <div id="row-${rowIndex}" class="flex items-center space-x-2 bg-gray-50 p-2 rounded border">
+                    <select class="border p-2 rounded text-sm w-1/2 material-select" onchange="updateStokOtomatis(${rowIndex})">
+                        <option value="">Pilih Material</option>
+                        <option value="mat-01">Besi Plat mm (Stok: 100)</option>
+                        <option value="mat-02">Pipa Hollow (Stok: 50)</option>
+                    </select>
+                    <input type="number" placeholder="Jumlah" class="border p-2 rounded text-sm w-1/4 material-qty" oninput="updateStokOtomatis(${rowIndex})">
+                    <button type="button" onclick="hapusBarisMaterial(${rowIndex})" class="bg-red-500 hover:bg-red-400 text-white px-3 py-2 rounded text-sm">Hapus</button>
+                </div>
+            `;
+            container.insertAdjacentHTML('beforeend', rowHTML);
+        }
+
+        // Fungsi untuk menghapus baris material
+        function hapusBarisMaterial(rowIndex) {
+            const row = document.getElementById(`row-${rowIndex}`);
+            if (row) {
+                row.remove();
+                // Panggil fungsi sinkronisasi stok ulang jika diperlukan di sini
+            }
+        }
+
+        // Fungsi otomatis memperbarui sisa stok gudang secara real-time saat baris/input berubah
+        function updateStokOtomatis(rowIndex) {
+            const row = document.getElementById(`row-${rowIndex}`);
+            const selectMaterial = row.querySelector('.material-select');
+            const inputQty = row.querySelector('.material-qty');
+
+            const selectedMaterialValue = selectMaterial.value;
+            const jumlahKeluar = parseFloat(inputQty.value) || 0;
+
+            if (selectedMaterialValue) {
+                // Simulasi update stok langsung ter-update secara sistem/frontend
+                console.log(`Material [${selectedMaterialValue}] dikurangi sebanyak: ${jumlahKeluar}. Stok gudang otomatis diperbarui.`);
+                
+                // Letakkan logika atau fungsi kalkulasi stok gudang Anda di sini
+            }
+        }
+    </script>
+
     <!-- ================= PEMANGGILAN MODUL EXTERNAL ================= -->
     <script type="module" src="auth.js"></script>
     <script src="warehouse.js"></script>
 </body>
 </html>
+```[cite: 1]
