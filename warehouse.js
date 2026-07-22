@@ -618,15 +618,18 @@ function onJenisChangeRow(el, preselectKode = '') {
 
             let currentSisa = stockMap[b['Kode Barang']] || 0;
 
-            // Khusus Tipe Transaksi 'Masuk' dan Kategori 'cable':
-            // Hanya tampilkan jika sisa stok sama dengan 0 (= 0) di Gudang Tujuan
+            // PENAMBAHAN FITUR: Sembunyikan stok <= 0 untuk Keluar dan Transfer pada Gudang Asal
+            if (tipeTransaksi === 'Keluar' || tipeTransaksi === 'Transfer') {
+                if (currentSisa <= 0) return false;
+            }
+
+            // Aturan khusus sebelumnya untuk Masuk & Kategori 'cable'
             if (tipeTransaksi === 'Masuk' && kategoriVal.toLowerCase() === 'cable') {
                 if (currentSisa !== 0) {
                     return false;
                 }
-            } else {
-                // Aturan standar untuk kategori atau tipe transaksi lainnya
-                if (tipeTransaksi === 'Keluar' && currentSisa <= 0) return false;
+            } else if (tipeTransaksi === 'Masuk') {
+                // Untuk transaksi Masuk standar, biarkan tampil (tidak diblokir di sini)
             }
 
             return true;
