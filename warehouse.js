@@ -558,7 +558,33 @@ function onJenisChangeRow(el, preselectKode = '') {
 
     if (jenisVal && kategoriVal) {
         const tipeTransaksi = document.querySelector('select[name="Tipe Transaksi"]')?.value || 'Masuk';
-        let stockMap = getAvailableStockByCode(); 
+        const selectedGudangTujuan = document.querySelector('select[name="Gudang Tujuan"]')?.value || '';
+
+        // Hitung stok global atau berdasarkan Gudang Tujuan untuk transaksi Masuk
+        let stockMap = {};
+        (db.transaksi || []).forEach(t => {
+            let kode = t['Kode Barang'];
+            if (!kode) return;
+            let jml = parseInt(t['Jumlah'] || 0);
+            if (!stockMap[kode]) stockMap[kode] = 0;
+
+            if (t['Tipe Transaksi'] === 'Masuk') {
+                if (selectedGudangTujuan === "" || t['Gudang Tujuan'] === selectedGudangTujuan) {
+                    stockMap[kode] += jml;
+                }
+            } else if (t['Tipe Transaksi'] === 'Keluar') {
+                if (selectedGudangTujuan === "" || t['Gudang Asal'] === selectedGudangTujuan) {
+                    stockMap[kode] -= jml;
+                }
+            } else if (t['Tipe Transaksi'] === 'Transfer') {
+                if (selectedGudangTujuan !== "") {
+                    if (t['Gudang Asal'] === selectedGudangTujuan) stockMap[kode] -= jml;
+                    if (t['Gudang Tujuan'] === selectedGudangTujuan) stockMap[kode] += jml;
+                } else {
+                    stockMap[kode] -= jml;
+                }
+            }
+        });
 
         let selectedKodeInRows = new Set();
         document.querySelectorAll('#item-tbody tr').forEach(row => {
@@ -572,28 +598,20 @@ function onJenisChangeRow(el, preselectKode = '') {
             if (b['Kategori'] !== kategoriVal || b['Jenis'] !== jenisVal) return false;
             
             if (selectedKodeInRows.has(b['Kode Barang'])) return false;
-            
+
+            let currentSisa = stockMap[b['Kode Barang']] || 0;
+
+            // Khusus Tipe Transaksi 'Masuk' dan Kategori 'cable':
+            // Hanya tampilkan jika sisa stok sama dengan 0 (= 0) di Gudang Tujuan
             if (tipeTransaksi === 'Masuk' && kategoriVal.toLowerCase() === 'cable') {
-                let globalStockMap = {};
-                (db.transaksi || []).forEach(t => {
-                    let kode = t['Kode Barang'];
-                    if (!kode) return;
-                    let jml = parseInt(t['Jumlah'] || 0);
-                    if (!globalStockMap[kode]) globalStockMap[kode] = 0;
-                    if (t['Tipe Transaksi'] === 'Masuk') globalStockMap[kode] += jml;
-                    else if (t['Tipe Transaksi'] === 'Keluar') globalStockMap[kode] -= jml;
-                    else if (t['Tipe Transaksi'] === 'Transfer') {}
-                });
-                let currentSisa = globalStockMap[b['Kode Barang']] || 0;
-                if (currentSisa > 0) {
+                if (currentSisa !== 0) {
                     return false;
                 }
+            } else {
+                // Aturan standar untuk kategori atau tipe transaksi lainnya
+                if (tipeTransaksi === 'Keluar' && currentSisa <= 0) return false;
             }
 
-            if (stockMap !== null) {
-                let currentSisa = stockMap[b['Kode Barang']] || 0;
-                if (currentSisa <= 0) return false;
-            }
             return true;
         });
 
@@ -603,7 +621,6 @@ function onJenisChangeRow(el, preselectKode = '') {
         if(preselectKode) updateNamaBarangRow(kodeSelect);
     }
 }
-
 function updateNamaBarangRow(el) {
     let tr = el.closest('tr');
     let kode = el.value;
