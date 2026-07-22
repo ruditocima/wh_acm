@@ -204,6 +204,8 @@ function exportRekapStokCSV() {
 }
 
 function renderDashboard() {
+    renderTable('gudang');
+}
     const mainContent = document.getElementById('main-content');
     if (!mainContent) return;
     mainContent.innerHTML = `
