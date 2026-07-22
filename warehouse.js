@@ -61,7 +61,6 @@ function printNotaPDF(t) {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF('p', 'pt', 'a4'); 
     
-    // 1. Ambil semua rincian item untuk ditampilkan utuh di tabel utama
     let allItems = db.transaksi.filter(x => x['No Doc'] === t['No Doc']);
     
     doc.setFont("helvetica", "normal"); 
@@ -77,7 +76,6 @@ function printNotaPDF(t) {
     doc.text(`Tanggal : ${t['Tanggal'] || '-'}`, 550, 95, { align: 'right' });
     doc.text(`Tipe Transaksi : ${t['Tipe Transaksi'] || '-'}`, 550, 110, { align: 'right' });
 
-    // Memasukkan seluruh rincian ke dalam array tabel
     let bodyData = [];
     allItems.forEach(item => {
         bodyData.push([
@@ -91,7 +89,6 @@ function printNotaPDF(t) {
         ]);
     });
     
-    // Baris kosong minimum agar tabel tetap rapi (12 baris)
     while (bodyData.length < 12) {
         bodyData.push(['', '', '', '', '', '', '']);
     }
@@ -106,7 +103,6 @@ function printNotaPDF(t) {
         columnStyles: { 1: { halign: 'left' } }
     });
 
-    // 2. Logika untuk mencari 'Nama Barang' yang sama, lalu menjumlahkannya
     let counts = {};
     let sums = {};
     allItems.forEach(item => {
@@ -116,7 +112,6 @@ function printNotaPDF(t) {
         sums[nama] = (sums[nama] || 0) + qty;
     });
 
-    // Kumpulkan teks barang yang lebih dari 1 kali diinput
     let noteTexts = [];
     for (let nama in counts) {
         if (counts[nama] > 1) { 
@@ -124,20 +119,17 @@ function printNotaPDF(t) {
         }
     }
 
-    // Posisi Y di bawah tabel (Baris ke-13 di luar garis tabel)
     let currentY = doc.lastAutoTable.finalY + 15; 
     
-    // 3. Tulis "Note :" dengan font normal ukuran 8 (sama persis seperti isi tabel)
     if (noteTexts.length > 0) {
         doc.setFont("helvetica", "normal");
         doc.setFontSize(8);
         doc.text(`Note : ${noteTexts.join(', ')}`, 40, currentY);
-        currentY += 20; // Tambah jarak bawah sebelum area tanda tangan
+        currentY += 20; 
     } else {
         currentY += 10;
     }
 
-    // 4. Area Tanda Tangan
     let finalY = currentY + 10;
     doc.setFontSize(8); 
     doc.setFont("helvetica", "normal"); 
@@ -156,6 +148,7 @@ function printNotaPDF(t) {
 
     doc.save(`NOTA_${t['No Doc']}.pdf`);
 }
+
 function exportCSV() {
     let data = db[currentSection];
     if (!data || data.length === 0) return alert("Tidak ada data untuk diexport!");
@@ -457,8 +450,43 @@ function getAvailableStockByCode() {
     return stockMap;
 }
 
+// =========================================================================
+// TAMBAHAN FUNGSI VALIDASI STOK SAAT TAMBAH BARIS & SIMPAN TRANSAKSI
+// =========================================================================
+function validateCurrentRows() {
+    const tipeTransaksi = document.querySelector('select[name="Tipe Transaksi"]')?.value || 'Masuk';
+    if (tipeTransaksi === 'Masuk') return true; // Transaksi Masuk tidak perlu validasi sisa stok
+
+    let stockMap = getAvailableStockByCode();
+    if (!stockMap) return true;
+
+    const rows = document.querySelectorAll('#item-tbody tr');
+    for (let row of rows) {
+        let kodeBarang = row.querySelector('select[name="Kode Barang[]"]')?.value;
+        let qtyInput = row.querySelector('input[name="Jumlah[]"]');
+        let qty = parseInt(qtyInput?.value || 0);
+
+        if (kodeBarang) {
+            let sisaStok = stockMap[kodeBarang] || 0;
+            if (qty > sisaStok) {
+                alert('Stok Kurang');
+                if (qtyInput) qtyInput.focus();
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
 function addTransactionRow(item = {}) {
+    // Validasi baris/data sebelumnya sebelum menambahkan baris baru
     const tbody = document.getElementById('item-tbody');
+    if (tbody && tbody.children.length > 0) {
+        if (!validateCurrentRows()) {
+            return; // Gagalkan penambahan baris material baru
+        }
+    }
+
     if (!tbody) return;
 
     let tr = document.createElement('tr');
@@ -975,6 +1003,13 @@ function saveData() {
         return;
     }
 
+    // Validasi stok sebelum data transaksi disimpan
+    if (currentSection === 'transaksi') {
+        if (!validateCurrentRows()) {
+            return; // Hentikan proses simpan jika stok kurang
+        }
+    }
+
     const formData = new FormData(form);
     let isNewInput = (editIndex === -1);
 
@@ -992,7 +1027,7 @@ function saveData() {
         let kats = formData.getAll('Kategori[]');
         let jens = formData.getAll('Jenis[]');
         let kbs = formData.getAll('Kode Barang[]');
-        let nbs = formData.getAll('Nama Barang (Auto)[]');
+        let nbs = formData.getAll('Nama Barang (Auto)[]വുമായി');
         let jmls = formData.getAll('Jumlah[]');
 
         if (kats.length === 0) {
