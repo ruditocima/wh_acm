@@ -419,7 +419,7 @@ function getAvailableStockByCode() {
     const tipeTransaksi = document.querySelector('select[name="Tipe Transaksi"]')?.value || 'Masuk';
     const selectedGudangAsal = document.querySelector('select[name="Gudang Asal"]')?.value || '';
     
-    if (tipeTransaksi === 'Masuk') return null;
+    if (tipeTransaksi !== 'Keluar') return null;
 
     let stockMap = {};
     (db.transaksi || []).forEach(t => {
@@ -451,11 +451,13 @@ function getAvailableStockByCode() {
 }
 
 // =========================================================================
-// TAMBAHAN FUNGSI VALIDASI STOK SAAT TAMBAH BARIS & SIMPAN TRANSAKSI
+// VALIDASI STOK HANYA BERLAKU KETIKA TIPE TRANSAKSI KELUAR
 // =========================================================================
 function validateCurrentRows() {
     const tipeTransaksi = document.querySelector('select[name="Tipe Transaksi"]')?.value || 'Masuk';
-    if (tipeTransaksi === 'Masuk') return true; // Transaksi Masuk tidak perlu validasi sisa stok
+    
+    // Hanya lakukan validasi jika tipe transaksi adalah "Keluar"
+    if (tipeTransaksi !== 'Keluar') return true;
 
     let stockMap = getAvailableStockByCode();
     if (!stockMap) return true;
@@ -479,9 +481,11 @@ function validateCurrentRows() {
 }
 
 function addTransactionRow(item = {}) {
-    // Validasi baris/data sebelumnya sebelum menambahkan baris baru
+    // Validasi baris/data sebelumnya hanya jika Tipe Transaksi adalah Keluar
+    const tipeTransaksi = document.querySelector('select[name="Tipe Transaksi"]')?.value || 'Masuk';
     const tbody = document.getElementById('item-tbody');
-    if (tbody && tbody.children.length > 0) {
+    
+    if (tipeTransaksi === 'Keluar' && tbody && tbody.children.length > 0) {
         if (!validateCurrentRows()) {
             return; // Gagalkan penambahan baris material baru
         }
@@ -1003,10 +1007,10 @@ function saveData() {
         return;
     }
 
-    // Validasi stok sebelum data transaksi disimpan
+    // Validasi stok saat simpan hanya jika Tipe Transaksi adalah Keluar
     if (currentSection === 'transaksi') {
         if (!validateCurrentRows()) {
-            return; // Hentikan proses simpan jika stok kurang
+            return; // Hentikan proses simpan jika stok kurang pada tipe Keluar
         }
     }
 
@@ -1027,7 +1031,7 @@ function saveData() {
         let kats = formData.getAll('Kategori[]');
         let jens = formData.getAll('Jenis[]');
         let kbs = formData.getAll('Kode Barang[]');
-        let nbs = formData.getAll('Nama Barang (Auto)[]വുമായി');
+        let nbs = formData.getAll('Nama Barang (Auto)[]');
         let jmls = formData.getAll('Jumlah[]');
 
         if (kats.length === 0) {
