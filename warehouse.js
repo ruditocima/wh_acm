@@ -450,13 +450,8 @@ function getAvailableStockByCode() {
     return stockMap;
 }
 
-// =========================================================================
-// VALIDASI STOK HANYA BERLAKU KETIKA TIPE TRANSAKSI KELUAR
-// =========================================================================
 function validateCurrentRows() {
     const tipeTransaksi = document.querySelector('select[name="Tipe Transaksi"]')?.value || 'Masuk';
-    
-    // Hanya lakukan validasi jika tipe transaksi adalah "Keluar"
     if (tipeTransaksi !== 'Keluar') return true;
 
     let stockMap = getAvailableStockByCode();
@@ -481,16 +476,7 @@ function validateCurrentRows() {
 }
 
 function addTransactionRow(item = {}) {
-    // Validasi baris/data sebelumnya hanya jika Tipe Transaksi adalah Keluar
-    const tipeTransaksi = document.querySelector('select[name="Tipe Transaksi"]')?.value || 'Masuk';
     const tbody = document.getElementById('item-tbody');
-    
-    if (tipeTransaksi === 'Keluar' && tbody && tbody.children.length > 0) {
-        if (!validateCurrentRows()) {
-            return; // Gagalkan penambahan baris material baru
-        }
-    }
-
     if (!tbody) return;
 
     let tr = document.createElement('tr');
@@ -1007,10 +993,9 @@ function saveData() {
         return;
     }
 
-    // Validasi stok saat simpan hanya jika Tipe Transaksi adalah Keluar
     if (currentSection === 'transaksi') {
         if (!validateCurrentRows()) {
-            return; // Hentikan proses simpan jika stok kurang pada tipe Keluar
+            return; 
         }
     }
 
