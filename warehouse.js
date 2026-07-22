@@ -234,17 +234,18 @@ function renderTable(section, searchQuery = '') {
     if (section === 'transaksi') {
         db[section].sort((a, b) => new Date(b['Tanggal'] || 0) - new Date(a['Tanggal'] || 0));
     } else if (section === 'barang') {
+        // Sort ascending berdasarkan Kategori -> Jenis -> Kode Barang
         db[section].sort((a, b) => {
             let catA = (a['Kategori'] || "").toLowerCase();
             let catB = (b['Kategori'] || "").toLowerCase();
             let jenisA = (a['Jenis'] || "").toLowerCase();
             let jenisB = (b['Jenis'] || "").toLowerCase();
+            let kodeA = (a['Kode Barang'] || "").toLowerCase();
+            let kodeB = (b['Kode Barang'] || "").toLowerCase();
 
-            if (catA < catB) return -1;
-            if (catA > catB) return 1;
-            if (jenisA < jenisB) return -1;
-            if (jenisA > jenisB) return 1;
-            return 0;
+            if (catA !== catB) return catA.localeCompare(catB);
+            if (jenisA !== jenisB) return jenisA.localeCompare(jenisB);
+            return kodeA.localeCompare(kodeB);
         });
     } else if (section === 'project') {
         db[section].sort((a, b) => {
@@ -295,6 +296,9 @@ function renderTable(section, searchQuery = '') {
         let keys = Object.keys(data[0]);
         if (section === 'transaksi') {
             keys = ['Tanggal', 'No Doc', 'ID DO-TO', 'Tipe Transaksi', 'Gudang Asal', 'Gudang Tujuan', 'Kode Project', 'Kategori', 'Jenis', 'Kode Barang', 'Nama Barang (Auto)', ...keys.filter(k => !['Tanggal', 'No Doc', 'ID DO-TO', 'Tipe Transaksi', 'Gudang Asal', 'Gudang Tujuan', 'Kode Project', 'Kategori', 'Jenis', 'Kode Barang', 'Nama Barang (Auto)'].includes(k))];
+        } else if (section === 'barang') {
+            // Urutan kolom untuk Master Barang: Kategori diletakkan sebelum Jenis
+            keys = ['Kategori', 'Jenis', 'Kode Barang', 'Nama Barang', ...keys.filter(k => !['Kategori', 'Jenis', 'Kode Barang', 'Nama Barang'].includes(k))];
         }
 
         keys.forEach(k => html += `<th class="border text-[9pt] font-bold uppercase text-gray-600">${k}</th>`);
@@ -980,7 +984,14 @@ function openModal(index) {
 
     if (btnPdf) btnPdf.classList.add('hidden');
     form.className = "grid grid-cols-2 gap-4 text-[9pt]";
-    let keys = currentSection === 'barang' ? ['Kategori', 'Jenis', 'Kode Barang', 'Nama Barang'] : (db[currentSection] && db[currentSection].length > 0 ? Object.keys(db[currentSection][0]) : []);
+    
+    // Sesuaikan urutan input form pada Master Barang agar Kategori duluan sebelum Jenis
+    let keys = [];
+    if (currentSection === 'barang') {
+        keys = ['Kategori', 'Jenis', 'Kode Barang', 'Nama Barang'];
+    } else {
+        keys = db[currentSection] && db[currentSection].length > 0 ? Object.keys(db[currentSection][0]) : [];
+    }
 
     keys.forEach(key => {
         let inputHtml = `<input type="text" name="${key}" value="${item[key] || ''}" class="w-full border p-2 rounded text-[9pt]" required>`;
