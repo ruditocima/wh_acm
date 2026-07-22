@@ -234,7 +234,7 @@ function renderTable(section, searchQuery = '') {
     if (section === 'transaksi') {
         db[section].sort((a, b) => new Date(b['Tanggal'] || 0) - new Date(a['Tanggal'] || 0));
     } else if (section === 'barang') {
-        // Sort ascending berdasarkan Kategori -> Jenis -> Kode Barang
+        // Sorting ascending berjenjang: 1. Kategori -> 2. Jenis -> 3. Kode Barang
         db[section].sort((a, b) => {
             let catA = (a['Kategori'] || "").toLowerCase();
             let catB = (b['Kategori'] || "").toLowerCase();
@@ -297,7 +297,6 @@ function renderTable(section, searchQuery = '') {
         if (section === 'transaksi') {
             keys = ['Tanggal', 'No Doc', 'ID DO-TO', 'Tipe Transaksi', 'Gudang Asal', 'Gudang Tujuan', 'Kode Project', 'Kategori', 'Jenis', 'Kode Barang', 'Nama Barang (Auto)', ...keys.filter(k => !['Tanggal', 'No Doc', 'ID DO-TO', 'Tipe Transaksi', 'Gudang Asal', 'Gudang Tujuan', 'Kode Project', 'Kategori', 'Jenis', 'Kode Barang', 'Nama Barang (Auto)'].includes(k))];
         } else if (section === 'barang') {
-            // Urutan kolom untuk Master Barang: Kategori diletakkan sebelum Jenis
             keys = ['Kategori', 'Jenis', 'Kode Barang', 'Nama Barang', ...keys.filter(k => !['Kategori', 'Jenis', 'Kode Barang', 'Nama Barang'].includes(k))];
         }
 
@@ -985,7 +984,6 @@ function openModal(index) {
     if (btnPdf) btnPdf.classList.add('hidden');
     form.className = "grid grid-cols-2 gap-4 text-[9pt]";
     
-    // Sesuaikan urutan input form pada Master Barang agar Kategori duluan sebelum Jenis
     let keys = [];
     if (currentSection === 'barang') {
         keys = ['Kategori', 'Jenis', 'Kode Barang', 'Nama Barang'];
