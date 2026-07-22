@@ -68,16 +68,16 @@
             <h2 id="modal-title" class="text-[11pt] font-bold mb-4">Edit Data</h2>
             <div id="modal-body">
                 <form id="data-form">
-                    <!-- Contoh Elemen untuk Form Tambah Baris Material -->
+                    <!-- Elemen untuk Form Tambah/Edit Baris Material -->
                     <div class="mb-4">
                         <div class="flex justify-between items-center mb-2">
-                            <label class="block text-xs font-bold text-gray-700">Daftar Material</label>
+                            <label class="block text-xs font-bold text-gray-700">Daftar Material / Kode Barang</label>
                             <button type="button" onclick="tambahBarisMaterial()" class="bg-green-600 hover:bg-green-500 text-white px-3 py-1 rounded text-xs transition">
                                 + Tambah Baris Material
                             </button>
                         </div>
                         <div id="material-rows-container" class="space-y-2">
-                            <!-- Baris material akan ditambahkan secara dinamis di sini -->
+                            <!-- Baris material akan dimuat secara dinamis (baik baris baru maupun data yang sudah ada saat edit) -->
                         </div>
                     </div>
                 </form>
@@ -89,25 +89,38 @@
         </div>
     </div>
 
-    <!-- ================= SCRIPT TAMBAHAN OTOMATIS STOK ================= -->
+    <!-- ================= SCRIPT MANAJEMEN BARIS & STOK OTOMATIS ================= -->
     <script>
-        // Fungsi untuk menambah baris material baru
-        function tambahBarisMaterial() {
+        // Daftar master material/kode barang (bisa disesuaikan dengan sumber data Anda)
+        const daftarOpsiMaterial = `
+            <option value="">Pilih Material / Kode Barang</option>
+            <option value="mat-01">MAT-01 - Besi Plat mm (Stok: 100)</option>
+            <option value="mat-02">MAT-02 - Pipa Hollow (Stok: 50)</option>
+            <option value="mat-03">MAT-03 - Besi Siku (Stok: 75)</option>
+        `;
+
+        // Fungsi untuk menambah baris material baru (kosong)
+        function tambahBarisMaterial(kodeBarang = '', jumlah = '') {
             const container = document.getElementById('material-rows-container');
-            const rowIndex = Date.now(); // Membuat ID unik berdasarkan waktu
+            const rowIndex = Date.now() + Math.random(); // ID unik
             
             const rowHTML = `
                 <div id="row-${rowIndex}" class="flex items-center space-x-2 bg-gray-50 p-2 rounded border">
-                    <select class="border p-2 rounded text-sm w-1/2 material-select" onchange="updateStokOtomatis(${rowIndex})">
-                        <option value="">Pilih Material</option>
-                        <option value="mat-01">Besi Plat mm (Stok: 100)</option>
-                        <option value="mat-02">Pipa Hollow (Stok: 50)</option>
+                    <select class="border p-2 rounded text-sm w-3/4 material-select" onchange="updateStokOtomatis(${rowIndex})">
+                        ${daftarOpsiMaterial}
                     </select>
-                    <input type="number" placeholder="Jumlah" class="border p-2 rounded text-sm w-1/4 material-qty" oninput="updateStokOtomatis(${rowIndex})">
+                    <input type="number" placeholder="Jumlah" value="${jumlah}" class="border p-2 rounded text-sm w-1/4 material-qty" oninput="updateStokOtomatis(${rowIndex})">
                     <button type="button" onclick="hapusBarisMaterial(${rowIndex})" class="bg-red-500 hover:bg-red-400 text-white px-3 py-2 rounded text-sm">Hapus</button>
                 </div>
             `;
             container.insertAdjacentHTML('beforeend', rowHTML);
+
+            // Jika dipanggil saat edit data dan membawa nilai kodeBarang, atur nilainya agar terpilih
+            if (kodeBarang) {
+                const row = document.getElementById(`row-${rowIndex}`);
+                const select = row.querySelector('.material-select');
+                select.value = kodeBarang;
+            }
         }
 
         // Fungsi untuk menghapus baris material
@@ -115,11 +128,10 @@
             const row = document.getElementById(`row-${rowIndex}`);
             if (row) {
                 row.remove();
-                // Panggil fungsi sinkronisasi stok ulang jika diperlukan di sini
             }
         }
 
-        // Fungsi otomatis memperbarui sisa stok gudang secara real-time saat baris/input berubah
+        // Fungsi otomatis memperbarui sisa stok gudang secara real-time
         function updateStokOtomatis(rowIndex) {
             const row = document.getElementById(`row-${rowIndex}`);
             const selectMaterial = row.querySelector('.material-select');
@@ -129,11 +141,32 @@
             const jumlahKeluar = parseFloat(inputQty.value) || 0;
 
             if (selectedMaterialValue) {
-                // Simulasi update stok langsung ter-update secara sistem/frontend
-                console.log(`Material [${selectedMaterialValue}] dikurangi sebanyak: ${jumlahKeluar}. Stok gudang otomatis diperbarui.`);
-                
-                // Letakkan logika atau fungsi kalkulasi stok gudang Anda di sini
+                console.log(`Material [${selectedMaterialValue}] diperbarui sejumlah: ${jumlahKeluar}. Stok gudang otomatis disesuaikan.`);
             }
+        }
+
+        // CONTOH FUNGSI PANGGILAN SAAT BUKA MODAL EDIT (Integrasikan dengan file warehouse.js Anda)
+        function bukaModalEdit(dataTransaksi) {
+            // Bersihkan kontainer terlebih dahulu
+            document.getElementById('material-rows-container').innerHTML = '';
+            document.getElementById('modal-title').innerText = 'Edit Data Transaksi';
+
+            // Jika transaksi memiliki item material sebelumnya, loop dan tampilkan kembali
+            if (dataTransaksi && dataTransaksi.items && dataTransaksi.items.length > 0) {
+                dataTransaksi.items.forEach(item => {
+                    tambahBarisMaterial(item.kodeBarang, item.jumlah);
+                });
+            } else {
+                // Jika kosong, sediakan 1 baris kosong default
+                tambahBarisMaterial();
+            }
+
+            // Tampilkan modal
+            document.getElementById('modal').classList.remove('hidden');
+        }
+
+        function closeModal() {
+            document.getElementById('modal').classList.add('hidden');
         }
     </script>
 
