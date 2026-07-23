@@ -397,14 +397,15 @@ function onTipeTransaksiChange() {
 }
 
 function onGudangAsalChange() {
-    const tipeTransaksi = document.querySelector('select[name="Tipe Transaksi"]')?.value;
-    const gudangAsal = document.querySelector('select[name="Gudang Asal"]')?.value;
-    const projectSelect = document.querySelector('select[name="Kode Project"]');
+    const tipeTransaksi = document.querySelector('[name="Tipe Transaksi"]')?.value;
+    const gudangAsal = document.querySelector('[name="Gudang Asal"]')?.value;
+    const projectDatalist = document.getElementById('list-kode-project');
     
-    if (!projectSelect) return;
+    if (!projectDatalist) return;
 
-    const currentSelectedProject = projectSelect.value;
-    projectSelect.innerHTML = '<option value="">-- Pilih --</option>';
+    projectDatalist.innerHTML = '';
+
+    let filteredProjects = db.project || [];
 
     if (tipeTransaksi === 'Keluar') {
         if (!gudangAsal) return;
@@ -418,23 +419,17 @@ function onGudangAsalChange() {
 
         if (!targetPrefix) return;
 
-        let filteredProjects = (db.project || []).filter(p => (p['Kode Project'] || "").startsWith(targetPrefix));
-
-        filteredProjects.forEach(p => {
-            let isSelected = (p['Kode Project'] === currentSelectedProject) ? 'selected' : '';
-            projectSelect.innerHTML += `<option value="${p['Kode Project']}" ${isSelected}>${p['Kode Project']} - ${p['Nama Project']}</option>`;
-        });
-    } else {
-        (db.project || []).forEach(p => {
-            let isSelected = (p['Kode Project'] === currentSelectedProject) ? 'selected' : '';
-            projectSelect.innerHTML += `<option value="${p['Kode Project']}" ${isSelected}>${p['Kode Project']} - ${p['Nama Project']}</option>`;
-        });
+        filteredProjects = filteredProjects.filter(p => (p['Kode Project'] || "").startsWith(targetPrefix));
     }
+
+    filteredProjects.forEach(p => {
+        projectDatalist.innerHTML += `<option value="${p['Kode Project']}">${p['Nama Project']}</option>`;
+    });
 }
 
 function getAvailableStockByCode() {
-    const tipeTransaksi = document.querySelector('select[name="Tipe Transaksi"]')?.value || 'Masuk';
-    const selectedGudangAsal = document.querySelector('select[name="Gudang Asal"]')?.value || '';
+    const tipeTransaksi = document.querySelector('[name="Tipe Transaksi"]')?.value || 'Masuk';
+    const selectedGudangAsal = document.querySelector('[name="Gudang Asal"]')?.value || '';
     
     if (tipeTransaksi !== 'Keluar' && tipeTransaksi !== 'Transfer') return null;
 
@@ -459,7 +454,7 @@ function getAvailableStockByCode() {
 }
 
 function validateCurrentRows() {
-    const tipeTransaksi = document.querySelector('select[name="Tipe Transaksi"]')?.value || 'Masuk';
+    const tipeTransaksi = document.querySelector('[name="Tipe Transaksi"]')?.value || 'Masuk';
     if (tipeTransaksi !== 'Keluar' && tipeTransaksi !== 'Transfer') return true;
 
     let stockMap = getAvailableStockByCode();
@@ -487,10 +482,9 @@ function addTransactionRow(item = {}) {
     const tbody = document.getElementById('item-tbody');
     if (!tbody) return;
 
-    // Validasi baris yang sudah ada sebelum menambah baris baru
     if (tbody.children.length > 0) {
         if (!validateCurrentRows()) {
-            return; // Gagalkan tambah baris jika stok kurang
+            return;
         }
     }
 
@@ -569,9 +563,9 @@ function onJenisChangeRow(el, preselectKode = '') {
     namaInput.value = '';
 
     if (jenisVal && kategoriVal) {
-        const tipeTransaksi = document.querySelector('select[name="Tipe Transaksi"]')?.value || 'Masuk';
-        const selectedGudangAsal = document.querySelector('select[name="Gudang Asal"]')?.value || '';
-        const selectedGudangTujuan = document.querySelector('select[name="Gudang Tujuan"]')?.value || '';
+        const tipeTransaksi = document.querySelector('[name="Tipe Transaksi"]')?.value || 'Masuk';
+        const selectedGudangAsal = document.querySelector('[name="Gudang Asal"]')?.value || '';
+        const selectedGudangTujuan = document.querySelector('[name="Gudang Tujuan"]')?.value || '';
 
         let stockMap = {};
         (db.transaksi || []).forEach(t => {
@@ -613,20 +607,15 @@ function onJenisChangeRow(el, preselectKode = '') {
 
             let currentSisa = stockMap[b['Kode Barang']] || 0;
 
-            // 1. Logika untuk transaksi Keluar atau Transfer
             if (tipeTransaksi === 'Keluar' || tipeTransaksi === 'Transfer') {
-                // Sembunyikan Kode Barang apabila sisa stok <= 0 di gudang asal (Semua Kategori)
                 if (currentSisa <= 0) return false;
             }
 
-            // 2. Logika khusus untuk transaksi Masuk
             if (tipeTransaksi === 'Masuk') {
-                // SEMBUNYIKAN semua barang yang kodenya berawalan "Ext"
                 if ((b['Kode Barang'] || '').startsWith('Ext')) {
                     return false;
                 }
 
-                // Sembunyikan Kode Barang apabila sisa stok > 0 di gudang tujuan (Khusus Kategori Cable)
                 if (kategoriVal.toLowerCase() === 'cable') {
                     if (currentSisa > 0) return false;
                 }
@@ -946,24 +935,24 @@ function openModal(index) {
                 </div>
                 <div>
                     <label class="block text-[8pt] font-medium text-gray-700 mb-1">Gudang Asal</label>
-                    <select name="Gudang Asal" onchange="onTipeTransaksiChange(); onGudangAsalChange();" class="w-full border p-1.5 rounded text-[8pt]">
-                        <option value="">-- Pilih --</option>
-                        ${(db.gudang || []).map(g => `<option value="${g['Kode Gudang']}" ${item['Gudang Asal'] === g['Kode Gudang'] ? 'selected' : ''}>${g['Nama Gudang']}</option>`).join('')}
-                    </select>
+                    <input list="list-gudang-asal" name="Gudang Asal" value="${item['Gudang Asal'] || ''}" oninput="onTipeTransaksiChange(); onGudangAsalChange();" onchange="onTipeTransaksiChange(); onGudangAsalChange();" class="w-full border p-1.5 rounded text-[8pt]" placeholder="Ketik / Pilih Gudang Asal">
+                    <datalist id="list-gudang-asal">
+                        ${(db.gudang || []).map(g => `<option value="${g['Kode Gudang']}">${g['Nama Gudang']}</option>`).join('')}
+                    </datalist>
                 </div>
                 <div>
                     <label class="block text-[8pt] font-medium text-gray-700 mb-1">Gudang Tujuan</label>
-                    <select name="Gudang Tujuan" class="w-full border p-1.5 rounded text-[8pt]">
-                        <option value="">-- Pilih --</option>
-                        ${(db.gudang || []).map(g => `<option value="${g['Kode Gudang']}" ${item['Gudang Tujuan'] === g['Kode Gudang'] ? 'selected' : ''}>${g['Nama Gudang']}</option>`).join('')}
-                    </select>
+                    <input list="list-gudang-tujuan" name="Gudang Tujuan" value="${item['Gudang Tujuan'] || ''}" class="w-full border p-1.5 rounded text-[8pt]" placeholder="Ketik / Pilih Gudang Tujuan">
+                    <datalist id="list-gudang-tujuan">
+                        ${(db.gudang || []).map(g => `<option value="${g['Kode Gudang']}">${g['Nama Gudang']}</option>`).join('')}
+                    </datalist>
                 </div>
                 <div>
                     <label class="block text-[8pt] font-medium text-gray-700 mb-1">Kode Project</label>
-                    <select name="Kode Project" class="w-full border p-1.5 rounded text-[8pt]">
-                        <option value="">-- Pilih --</option>
-                        ${(db.project || []).map(p => `<option value="${p['Kode Project']}" ${item['Kode Project'] === p['Kode Project'] ? 'selected' : ''}>${p['Kode Project']} - ${p['Nama Project']}</option>`).join('')}
-                    </select>
+                    <input list="list-kode-project" name="Kode Project" value="${item['Kode Project'] || ''}" class="w-full border p-1.5 rounded text-[8pt]" placeholder="Ketik / Pilih Project">
+                    <datalist id="list-kode-project">
+                        ${(db.project || []).map(p => `<option value="${p['Kode Project']}">${p['Nama Project']}</option>`).join('')}
+                    </datalist>
                 </div>
                 <div>
                     <label class="block text-[8pt] font-medium text-gray-700 mb-1">Petugas <span class="text-red-500">*</span></label>
@@ -1041,10 +1030,10 @@ function closeModal() {
     const modal = document.getElementById('modal');
     if (modal) modal.classList.add('hidden'); 
 }
+
 window.autoConvertCableStock = function(tglTransaksi, petugas) {
     if (!db.barang || !db.transaksi) return;
 
-    // 1. Rekap Stok Per Gudang
     let stockPerGudang = {};
     db.transaksi.forEach(t => {
         let kode = t['Kode Barang'];
@@ -1071,7 +1060,6 @@ window.autoConvertCableStock = function(tglTransaksi, petugas) {
         }
     });
 
-    // 2. Filter Master Barang khusus Kategori Cable awalan 'Drum'
     let cableItems = db.barang.filter(b => 
         (b['Kategori'] || '').toLowerCase() === 'cable' && 
         (b['Kode Barang'] || '').startsWith('Drum')
@@ -1083,14 +1071,10 @@ window.autoConvertCableStock = function(tglTransaksi, petugas) {
         for (let gudang in stockPerGudang) {
             let sisaStok = stockPerGudang[gudang][kodeAsal] || 0;
             
-            // 3. Syarat Eksekusi: Stok > 0 dan Stok < 3000
             if (sisaStok > 0 && sisaStok < 3000) {
-                
-                // Pisahkan string (Misal: Drum24-01 -> prefix: Drum24)
                 let parts = kodeAsal.split('-');
                 let baseExt = parts[0].replace('Drum', 'Ext'); 
                 
-                // Cari angka sequence/urut dari Ext yang sudah ada di Master Barang
                 let existingExt = db.barang.filter(b => (b['Kode Barang'] || '').startsWith(baseExt + '-'));
                 let maxSeq = 0;
                 
@@ -1104,12 +1088,10 @@ window.autoConvertCableStock = function(tglTransaksi, petugas) {
                     }
                 });
                 
-                // Generate Kode dan Nama Baru (01, 02 menjadi berkelanjutan)
                 let nextSeqStr = (maxSeq + 1).toString().padStart(2, '0');
                 let kodeBaru = `${baseExt}-${nextSeqStr}`;
                 let namaBaru = (cable['Nama Barang'] || '').replace('Drum', 'Ext');
                 
-                // 4. Otomatis Tambah ke Master Barang (Kategori & Jenis Tetap)
                 if (!db.barang.find(b => b['Kode Barang'] === kodeBaru)) {
                     db.barang.push({
                         "Kategori": cable['Kategori'],
@@ -1119,10 +1101,8 @@ window.autoConvertCableStock = function(tglTransaksi, petugas) {
                     });
                 }
                 
-                // 5. Mutasi Transaksi (Agar riwayat barang lama tidak rusak)
                 let noDocAuto = generateUniqueDocCode(tglTransaksi) + "-CNV-" + kodeBaru; 
                 
-                // Transaksi Keluar (Memotong sisa stok Drum)
                 db.transaksi.push({
                     "Tanggal": tglTransaksi,
                     "No Doc": noDocAuto,
@@ -1140,7 +1120,6 @@ window.autoConvertCableStock = function(tglTransaksi, petugas) {
                     "Keterangan": `Auto convert to ${kodeBaru} (Stock < 3000)`
                 });
 
-                // Transaksi Masuk (Menambah stok ke Ext)
                 db.transaksi.push({
                     "Tanggal": tglTransaksi,
                     "No Doc": noDocAuto,
@@ -1158,12 +1137,12 @@ window.autoConvertCableStock = function(tglTransaksi, petugas) {
                     "Keterangan": `Auto convert from ${kodeAsal}`
                 });
                 
-                // Reset memori stok agar tidak loop konversi ganda jika dibaca ulang
                 stockPerGudang[gudang][kodeAsal] = 0;
             }
         }
     });
 };
+
 function saveData() {
     const form = document.getElementById('data-form');
     if (!form) return;
@@ -1174,7 +1153,7 @@ function saveData() {
 
     if (currentSection === 'transaksi') {
         if (!validateCurrentRows()) {
-            return; // Gagalkan proses simpan jika stok kurang
+            return;
         }
     }
 
@@ -1232,9 +1211,7 @@ function saveData() {
             db.transaksi.push(...newItems);
         }
 
-        // --- PANGGIL FUNGSI KONVERSI STOK CABLE DISINI ---
         autoConvertCableStock(tgl, petugas);
-        // -------------------------------------------------
     } 
     else {
         let newItem = {};
