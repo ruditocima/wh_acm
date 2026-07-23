@@ -57,6 +57,73 @@ function deleteData(index) {
     }
 }
 
+/* Helper fungsi untuk Searchable Dropdown */
+function getGudangName(code) {
+    if (!code) return '';
+    let g = (db.gudang || []).find(x => x['Kode Gudang'] === code);
+    return g ? g['Nama Gudang'] : code;
+}
+
+function getProjectName(code) {
+    if (!code) return '';
+    let p = (db.project || []).find(x => x['Kode Project'] === code);
+    return p ? p['Nama Project'] : code;
+}
+
+function openSearchableDropdown(listId) {
+    document.querySelectorAll('.searchable-list').forEach(el => {
+        if (el.id !== listId) el.classList.add('hidden');
+    });
+    const list = document.getElementById(listId);
+    if (list) list.classList.remove('hidden');
+}
+
+function handleSearchableInput(inputId, hiddenId, listId) {
+    openSearchableDropdown(listId);
+    const input = document.getElementById(inputId);
+    const hidden = document.getElementById(hiddenId);
+    if (input && hidden && input.value === '') {
+        hidden.value = '';
+    }
+
+    const filter = input ? input.value.toLowerCase() : '';
+    const list = document.getElementById(listId);
+    if (!list) return;
+
+    const items = list.querySelectorAll('.searchable-item');
+    items.forEach(item => {
+        const txt = item.textContent || item.innerText;
+        if (txt.toLowerCase().includes(filter)) {
+            item.style.display = "";
+        } else {
+            item.style.display = "none";
+        }
+    });
+}
+
+function selectSearchableOption(hiddenId, inputId, listId, code, name, callback) {
+    const hidden = document.getElementById(hiddenId);
+    const input = document.getElementById(inputId);
+    const list = document.getElementById(listId);
+
+    if (hidden) hidden.value = code;
+    if (input) input.value = name;
+    if (list) list.classList.add('hidden');
+
+    if (typeof callback === 'function') {
+        callback();
+    }
+}
+
+if (!window.searchableListenerAdded) {
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest('.searchable-container')) {
+            document.querySelectorAll('.searchable-list').forEach(el => el.classList.add('hidden'));
+        }
+    });
+    window.searchableListenerAdded = true;
+}
+
 function printNotaPDF(t) {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF('p', 'pt', 'a4'); 
@@ -398,35 +465,52 @@ function onTipeTransaksiChange() {
 
 function onGudangAsalChange() {
     const tipeTransaksi = document.querySelector('[name="Tipe Transaksi"]')?.value;
-    const gudangAsal = document.querySelector('[name="Gudang Asal"]')?.value;
-    const projectSelect = document.getElementById('list-kode-project');
-    
-    if (!projectSelect) return;
+    const gudangAsal = document.querySelector('[name="Gudang Asal"]')?.value; // mengambil nilai hidden kode gudang
+    const projectListContainer = document.getElementById('project-list-items');
+    const projectHidden = document.getElementById('project-val');
+    const projectInput = document.getElementById('project-input');
 
-    let selectedProjectVal = projectSelect.value;
-    projectSelect.innerHTML = '<option value="">-- Pilih Project --</option>';
+    if (!projectListContainer) return;
 
+    let selectedProjectVal = projectHidden ? projectHidden.value : '';
     let filteredProjects = db.project || [];
 
     if (tipeTransaksi === 'Keluar') {
-        if (!gudangAsal) return;
+        if (!gudangAsal) {
+            filteredProjects = [];
+        } else {
+            let targetPrefix = "";
+            if (gudangAsal.startsWith('ACM-ACH')) targetPrefix = 'ACH';
+            else if (gudangAsal.startsWith('ACM-PLB')) targetPrefix = 'PLB';
+            else if (gudangAsal.startsWith('ACM-PMN')) targetPrefix = 'PMN';
+            else if (gudangAsal.startsWith('ACM-BKT')) targetPrefix = 'BKT';
+            else if (gudangAsal.startsWith('ACM-PAD')) targetPrefix = 'PAD';
 
-        let targetPrefix = "";
-        if (gudangAsal.startsWith('ACM-ACH')) targetPrefix = 'ACH';
-        else if (gudangAsal.startsWith('ACM-PLB')) targetPrefix = 'PLB';
-        else if (gudangAsal.startsWith('ACM-PMN')) targetPrefix = 'PMN';
-        else if (gudangAsal.startsWith('ACM-BKT')) targetPrefix = 'BKT';
-        else if (gudangAsal.startsWith('ACM-PAD')) targetPrefix = 'PAD';
-
-        if (!targetPrefix) return;
-
-        filteredProjects = filteredProjects.filter(p => (p['Kode Project'] || "").startsWith(targetPrefix));
+            if (targetPrefix) {
+                filteredProjects = filteredProjects.filter(p => (p['Kode Project'] || "").startsWith(targetPrefix));
+            } else {
+                filteredProjects = [];
+            }
+        }
     }
 
+    let currentProjObj = filteredProjects.find(p => p['Kode Project'] === selectedProjectVal);
+    if (!currentProjObj) {
+        if (projectHidden) projectHidden.value = '';
+        if (projectInput) projectInput.value = '';
+    } else {
+        if (projectInput) projectInput.value = currentProjObj['Nama Project'];
+    }
+
+    let listHTML = `<div onclick="selectSearchableOption('project-val', 'project-input', 'project-list-items', '', '', null)" class="p-2 hover:bg-indigo-50 cursor-pointer text-[8pt] text-gray-500 italic searchable-item">-- Pilih Project --</div>`;
+
     filteredProjects.forEach(p => {
-        let isSelected = (selectedProjectVal === p['Kode Project']) ? 'selected' : '';
-        projectSelect.innerHTML += `<option value="${p['Kode Project']}" ${isSelected}>${p['Nama Project']}</option>`;
+        const safeName = (p['Nama Project'] || '').replace(/'/g, "\\'");
+        const safeCode = (p['Kode Project'] || '').replace(/'/g, "\\'");
+        listHTML += `<div onclick="selectSearchableOption('project-val', 'project-input', 'project-list-items', '${safeCode}', '${safeName}', null)" class="p-2 hover:bg-indigo-50 cursor-pointer text-[8pt] searchable-item">${p['Nama Project']}</div>`;
     });
+
+    projectListContainer.innerHTML = listHTML;
 }
 
 function getAvailableStockByCode() {
@@ -913,17 +997,28 @@ function openModal(index) {
         let docVal = item['No Doc'] || generateUniqueDocCode(dateVal);
         let idDoToVal = item['ID DO-TO'] || '';
 
-        let gudangAsalOptions = (db.gudang || []).map(g => 
-            `<option value="${g['Kode Gudang']}" ${item['Gudang Asal'] === g['Kode Gudang'] ? 'selected' : ''}>${g['Nama Gudang']}</option>`
-        ).join('');
+        let gudangAsalCode = item['Gudang Asal'] || '';
+        let gudangAsalName = getGudangName(gudangAsalCode);
 
-        let gudangTujuanOptions = (db.gudang || []).map(g => 
-            `<option value="${g['Kode Gudang']}" ${item['Gudang Tujuan'] === g['Kode Gudang'] ? 'selected' : ''}>${g['Nama Gudang']}</option>`
-        ).join('');
+        let gudangTujuanCode = item['Gudang Tujuan'] || '';
+        let gudangTujuanName = getGudangName(gudangTujuanCode);
 
-        let projectOptions = (db.project || []).map(p => 
-            `<option value="${p['Kode Project']}" ${item['Kode Project'] === p['Kode Project'] ? 'selected' : ''}>${p['Nama Project']}</option>`
-        ).join('');
+        let projectCode = item['Kode Project'] || '';
+        let projectName = getProjectName(projectCode);
+
+        let gudangAsalItems = `<div onclick="selectSearchableOption('gudang-asal-val', 'gudang-asal-input', 'gudang-asal-list', '', '', () => { onTipeTransaksiChange(); onGudangAsalChange(); })" class="p-2 hover:bg-indigo-50 cursor-pointer text-[8pt] text-gray-500 italic searchable-item">-- Pilih Gudang Asal --</div>`;
+        (db.gudang || []).forEach(g => {
+            const safeName = (g['Nama Gudang'] || '').replace(/'/g, "\\'");
+            const safeCode = (g['Kode Gudang'] || '').replace(/'/g, "\\'");
+            gudangAsalItems += `<div onclick="selectSearchableOption('gudang-asal-val', 'gudang-asal-input', 'gudang-asal-list', '${safeCode}', '${safeName}', () => { onTipeTransaksiChange(); onGudangAsalChange(); })" class="p-2 hover:bg-indigo-50 cursor-pointer text-[8pt] searchable-item">${g['Nama Gudang']}</div>`;
+        });
+
+        let gudangTujuanItems = `<div onclick="selectSearchableOption('gudang-tujuan-val', 'gudang-tujuan-input', 'gudang-tujuan-list', '', '', null)" class="p-2 hover:bg-indigo-50 cursor-pointer text-[8pt] text-gray-500 italic searchable-item">-- Pilih Gudang Tujuan --</div>`;
+        (db.gudang || []).forEach(g => {
+            const safeName = (g['Nama Gudang'] || '').replace(/'/g, "\\'");
+            const safeCode = (g['Kode Gudang'] || '').replace(/'/g, "\\'");
+            gudangTujuanItems += `<div onclick="selectSearchableOption('gudang-tujuan-val', 'gudang-tujuan-input', 'gudang-tujuan-list', '${safeCode}', '${safeName}', null)" class="p-2 hover:bg-indigo-50 cursor-pointer text-[8pt] searchable-item">${g['Nama Gudang']}</div>`;
+        });
 
         let headerHTML = `
             <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4 bg-gray-50 p-4 rounded border">
@@ -947,26 +1042,28 @@ function openModal(index) {
                         <option value="Transfer" ${item['Tipe Transaksi'] === 'Transfer' ? 'selected' : ''}>Transfer</option>
                     </select>
                 </div>
-                <div>
+                <div class="relative searchable-container">
                     <label class="block text-[8pt] font-medium text-gray-700 mb-1">Gudang Asal</label>
-                    <select name="Gudang Asal" onchange="onTipeTransaksiChange(); onGudangAsalChange();" class="w-full border p-1.5 rounded text-[8pt]">
-                        <option value="">-- Pilih Gudang Asal --</option>
-                        ${gudangAsalOptions}
-                    </select>
+                    <input type="hidden" name="Gudang Asal" id="gudang-asal-val" value="${gudangAsalCode}">
+                    <input type="text" id="gudang-asal-input" value="${gudangAsalName}" placeholder="-- Pilih / Cari Gudang Asal --" onfocus="openSearchableDropdown('gudang-asal-list')" oninput="handleSearchableInput('gudang-asal-input', 'gudang-asal-val', 'gudang-asal-list')" class="w-full border p-1.5 rounded text-[8pt] bg-white cursor-pointer" autocomplete="off">
+                    <div id="gudang-asal-list" class="searchable-list hidden absolute left-0 right-0 top-full mt-1 bg-white border border-gray-300 rounded shadow-lg max-h-48 overflow-y-auto z-50">
+                        ${gudangAsalItems}
+                    </div>
                 </div>
-                <div>
+                <div class="relative searchable-container">
                     <label class="block text-[8pt] font-medium text-gray-700 mb-1">Gudang Tujuan</label>
-                    <select name="Gudang Tujuan" class="w-full border p-1.5 rounded text-[8pt]">
-                        <option value="">-- Pilih Gudang Tujuan --</option>
-                        ${gudangTujuanOptions}
-                    </select>
+                    <input type="hidden" name="Gudang Tujuan" id="gudang-tujuan-val" value="${gudangTujuanCode}">
+                    <input type="text" id="gudang-tujuan-input" value="${gudangTujuanName}" placeholder="-- Pilih / Cari Gudang Tujuan --" onfocus="openSearchableDropdown('gudang-tujuan-list')" oninput="handleSearchableInput('gudang-tujuan-input', 'gudang-tujuan-val', 'gudang-tujuan-list')" class="w-full border p-1.5 rounded text-[8pt] bg-white cursor-pointer" autocomplete="off">
+                    <div id="gudang-tujuan-list" class="searchable-list hidden absolute left-0 right-0 top-full mt-1 bg-white border border-gray-300 rounded shadow-lg max-h-48 overflow-y-auto z-50">
+                        ${gudangTujuanItems}
+                    </div>
                 </div>
-                <div>
+                <div class="relative searchable-container">
                     <label class="block text-[8pt] font-medium text-gray-700 mb-1">Kode Project</label>
-                    <select id="list-kode-project" name="Kode Project" class="w-full border p-1.5 rounded text-[8pt]">
-                        <option value="">-- Pilih Project --</option>
-                        ${projectOptions}
-                    </select>
+                    <input type="hidden" name="Kode Project" id="project-val" value="${projectCode}">
+                    <input type="text" id="project-input" value="${projectName}" placeholder="-- Pilih / Cari Project --" onfocus="openSearchableDropdown('project-list-items')" oninput="handleSearchableInput('project-input', 'project-val', 'project-list-items')" class="w-full border p-1.5 rounded text-[8pt] bg-white cursor-pointer" autocomplete="off">
+                    <div id="project-list-items" class="searchable-list hidden absolute left-0 right-0 top-full mt-1 bg-white border border-gray-300 rounded shadow-lg max-h-48 overflow-y-auto z-50">
+                    </div>
                 </div>
                 <div>
                     <label class="block text-[8pt] font-medium text-gray-700 mb-1">Petugas <span class="text-red-500">*</span></label>
