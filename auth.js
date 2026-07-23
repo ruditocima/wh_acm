@@ -3,7 +3,7 @@ import { getDatabase, ref, set, get, child } from "https://www.gstatic.com/fireb
 import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyChPNI9RPXneZfjg0YyNCTlVDfSiEVdrKs",
+  apiKey: "AIzaSyBVdHM-81Q6Az_uRKzfDwIHebALbOtU4Rk",
   authDomain: "wms-acm.firebaseapp.com",
   projectId: "wms-acm",
   storageBucket: "wms-acm.firebasestorage.app",
