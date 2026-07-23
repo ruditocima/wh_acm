@@ -9,7 +9,7 @@ const initialData = {
     "transaksi": [
         {
             "Tanggal": "2026-07-16", 
-            "No Doc": "ACM-NPM-VII-2026-001", 
+            "No Doc": "ACM-NPM-VII-2026-0001", 
             "ID DO-TO": "TX-001", 
             "Tipe Transaksi": "Masuk", 
             "Gudang Asal": "", 
@@ -444,7 +444,7 @@ function generateUniqueDocCode(dateStr) {
         }
     });
 
-    return prefix + (maxNum + 1).toString().padStart(3, '0');
+    return prefix + (maxNum + 1).toString().padStart(4, '0');
 }
 
 function onTanggalChange(val) {
@@ -465,7 +465,7 @@ function onTipeTransaksiChange() {
 
 function onGudangAsalChange() {
     const tipeTransaksi = document.querySelector('[name="Tipe Transaksi"]')?.value;
-    const gudangAsal = document.querySelector('[name="Gudang Asal"]')?.value; // mengambil nilai hidden kode gudang
+    const gudangAsal = document.querySelector('[name="Gudang Asal"]')?.value;
     const projectListContainer = document.getElementById('project-list-items');
     const projectHidden = document.getElementById('project-val');
     const projectInput = document.getElementById('project-input');
