@@ -613,14 +613,23 @@ function onJenisChangeRow(el, preselectKode = '') {
 
             let currentSisa = stockMap[b['Kode Barang']] || 0;
 
-            // 2. Sembunyikan Kode Barang apabila sisa stok <= 0 di gudang asal saat Keluar atau Transfer (Semua Kategori)
+            // 1. Logika untuk transaksi Keluar atau Transfer
             if (tipeTransaksi === 'Keluar' || tipeTransaksi === 'Transfer') {
+                // Sembunyikan Kode Barang apabila sisa stok <= 0 di gudang asal (Semua Kategori)
                 if (currentSisa <= 0) return false;
             }
 
-            // 3. Sembunyikan Kode Barang apabila sisa stok > 0 di gudang tujuan saat Masuk (Khusus Kategori Cable)
-            if (tipeTransaksi === 'Masuk' && kategoriVal.toLowerCase() === 'cable') {
-                if (currentSisa > 0) return false;
+            // 2. Logika khusus untuk transaksi Masuk
+            if (tipeTransaksi === 'Masuk') {
+                // SEMBUNYIKAN semua barang yang kodenya berawalan "Ext"
+                if ((b['Kode Barang'] || '').startsWith('Ext')) {
+                    return false;
+                }
+
+                // Sembunyikan Kode Barang apabila sisa stok > 0 di gudang tujuan (Khusus Kategori Cable)
+                if (kategoriVal.toLowerCase() === 'cable') {
+                    if (currentSisa > 0) return false;
+                }
             }
 
             return true;
