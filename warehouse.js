@@ -1032,7 +1032,129 @@ function closeModal() {
     const modal = document.getElementById('modal');
     if (modal) modal.classList.add('hidden'); 
 }
+window.autoConvertCableStock = function(tglTransaksi, petugas) {
+    if (!db.barang || !db.transaksi) return;
 
+    // 1. Rekap Stok Per Gudang
+    let stockPerGudang = {};
+    db.transaksi.forEach(t => {
+        let kode = t['Kode Barang'];
+        if (!kode) return;
+        let jml = parseInt(t['Jumlah'] || 0);
+        
+        if (t['Tipe Transaksi'] === 'Masuk') {
+            let g = t['Gudang Tujuan'];
+            if (!stockPerGudang[g]) stockPerGudang[g] = {};
+            stockPerGudang[g][kode] = (stockPerGudang[g][kode] || 0) + jml;
+        } else if (t['Tipe Transaksi'] === 'Keluar') {
+            let g = t['Gudang Asal'];
+            if (!stockPerGudang[g]) stockPerGudang[g] = {};
+            stockPerGudang[g][kode] = (stockPerGudang[g][kode] || 0) - jml;
+        } else if (t['Tipe Transaksi'] === 'Transfer') {
+            let gAsal = t['Gudang Asal'];
+            let gTujuan = t['Gudang Tujuan'];
+            
+            if (!stockPerGudang[gAsal]) stockPerGudang[gAsal] = {};
+            stockPerGudang[gAsal][kode] = (stockPerGudang[gAsal][kode] || 0) - jml;
+            
+            if (!stockPerGudang[gTujuan]) stockPerGudang[gTujuan] = {};
+            stockPerGudang[gTujuan][kode] = (stockPerGudang[gTujuan][kode] || 0) + jml;
+        }
+    });
+
+    // 2. Filter Master Barang khusus Kategori Cable awalan 'Drum'
+    let cableItems = db.barang.filter(b => 
+        (b['Kategori'] || '').toLowerCase() === 'cable' && 
+        (b['Kode Barang'] || '').startsWith('Drum')
+    );
+
+    cableItems.forEach(cable => {
+        let kodeAsal = cable['Kode Barang'];
+        
+        for (let gudang in stockPerGudang) {
+            let sisaStok = stockPerGudang[gudang][kodeAsal] || 0;
+            
+            // 3. Syarat Eksekusi: Stok > 0 dan Stok < 3000
+            if (sisaStok > 0 && sisaStok < 3000) {
+                
+                // Pisahkan string (Misal: Drum24-01 -> prefix: Drum24)
+                let parts = kodeAsal.split('-');
+                let baseExt = parts[0].replace('Drum', 'Ext'); 
+                
+                // Cari angka sequence/urut dari Ext yang sudah ada di Master Barang
+                let existingExt = db.barang.filter(b => (b['Kode Barang'] || '').startsWith(baseExt + '-'));
+                let maxSeq = 0;
+                
+                existingExt.forEach(b => {
+                    let extParts = b['Kode Barang'].split('-');
+                    if (extParts.length > 1) {
+                        let seq = parseInt(extParts[1]);
+                        if (!isNaN(seq) && seq > maxSeq) {
+                            maxSeq = seq;
+                        }
+                    }
+                });
+                
+                // Generate Kode dan Nama Baru (01, 02 menjadi berkelanjutan)
+                let nextSeqStr = (maxSeq + 1).toString().padStart(2, '0');
+                let kodeBaru = `${baseExt}-${nextSeqStr}`;
+                let namaBaru = (cable['Nama Barang'] || '').replace('Drum', 'Ext');
+                
+                // 4. Otomatis Tambah ke Master Barang (Kategori & Jenis Tetap)
+                if (!db.barang.find(b => b['Kode Barang'] === kodeBaru)) {
+                    db.barang.push({
+                        "Kategori": cable['Kategori'],
+                        "Jenis": cable['Jenis'],
+                        "Kode Barang": kodeBaru,
+                        "Nama Barang": namaBaru
+                    });
+                }
+                
+                // 5. Mutasi Transaksi (Agar riwayat barang lama tidak rusak)
+                let noDocAuto = generateUniqueDocCode(tglTransaksi) + "-CNV-" + kodeBaru; 
+                
+                // Transaksi Keluar (Memotong sisa stok Drum)
+                db.transaksi.push({
+                    "Tanggal": tglTransaksi,
+                    "No Doc": noDocAuto,
+                    "ID DO-TO": "SYS-AUTO",
+                    "Tipe Transaksi": "Keluar",
+                    "Gudang Asal": gudang,
+                    "Gudang Tujuan": "",
+                    "Kode Project": "",
+                    "Kategori": cable['Kategori'],
+                    "Jenis": cable['Jenis'],
+                    "Kode Barang": kodeAsal,
+                    "Nama Barang (Auto)": cable['Nama Barang'],
+                    "Jumlah": sisaStok,
+                    "Petugas": petugas || "Sistem",
+                    "Keterangan": `Auto convert to ${kodeBaru} (Stock < 3000)`
+                });
+
+                // Transaksi Masuk (Menambah stok ke Ext)
+                db.transaksi.push({
+                    "Tanggal": tglTransaksi,
+                    "No Doc": noDocAuto,
+                    "ID DO-TO": "SYS-AUTO",
+                    "Tipe Transaksi": "Masuk",
+                    "Gudang Asal": "",
+                    "Gudang Tujuan": gudang,
+                    "Kode Project": "", 
+                    "Kategori": cable['Kategori'],
+                    "Jenis": cable['Jenis'],
+                    "Kode Barang": kodeBaru,
+                    "Nama Barang (Auto)": namaBaru,
+                    "Jumlah": sisaStok,
+                    "Petugas": petugas || "Sistem",
+                    "Keterangan": `Auto convert from ${kodeAsal}`
+                });
+                
+                // Reset memori stok agar tidak loop konversi ganda jika dibaca ulang
+                stockPerGudang[gudang][kodeAsal] = 0;
+            }
+        }
+    });
+};
 function saveData() {
     const form = document.getElementById('data-form');
     if (!form) return;
@@ -1100,6 +1222,10 @@ function saveData() {
             db.transaksi = db.transaksi.filter(t => t['No Doc'] !== docVal);
             db.transaksi.push(...newItems);
         }
+
+        // --- PANGGIL FUNGSI KONVERSI STOK CABLE DISINI ---
+        autoConvertCableStock(tgl, petugas);
+        // -------------------------------------------------
     } 
     else {
         let newItem = {};
