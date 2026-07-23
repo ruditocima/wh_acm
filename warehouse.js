@@ -1160,6 +1160,20 @@ function saveData() {
     const formData = new FormData(form);
     let isNewInput = (editIndex === -1);
 
+    // Validasi Cek Duplikasi Kode Project di Master Project
+    if (currentSection === 'project') {
+        let kodeProjInput = formData.get('Kode Project')?.trim().toLowerCase();
+        let isDuplicate = (db.project || []).some((p, index) => {
+            if (!isNewInput && index === editIndex) return false;
+            return (p['Kode Project'] || '').trim().toLowerCase() === kodeProjInput;
+        });
+
+        if (isDuplicate) {
+            alert('Kode Project sudah digunakan! Harap gunakan Kode Project yang lain.');
+            return;
+        }
+    }
+
     if(currentSection === 'transaksi') {
         let tgl = formData.get('Tanggal');
         let idDoTo = formData.get('ID DO-TO'); 
