@@ -399,11 +399,12 @@ function onTipeTransaksiChange() {
 function onGudangAsalChange() {
     const tipeTransaksi = document.querySelector('[name="Tipe Transaksi"]')?.value;
     const gudangAsal = document.querySelector('[name="Gudang Asal"]')?.value;
-    const projectDatalist = document.getElementById('list-kode-project');
+    const projectSelect = document.getElementById('list-kode-project');
     
-    if (!projectDatalist) return;
+    if (!projectSelect) return;
 
-    projectDatalist.innerHTML = '';
+    let selectedProjectVal = projectSelect.value;
+    projectSelect.innerHTML = '<option value="">-- Pilih Project --</option>';
 
     let filteredProjects = db.project || [];
 
@@ -423,7 +424,8 @@ function onGudangAsalChange() {
     }
 
     filteredProjects.forEach(p => {
-        projectDatalist.innerHTML += `<option value="${p['Kode Project']}">${p['Nama Project']}</option>`;
+        let isSelected = (selectedProjectVal === p['Kode Project']) ? 'selected' : '';
+        projectSelect.innerHTML += `<option value="${p['Kode Project']}" ${isSelected}>${p['Nama Project']}</option>`;
     });
 }
 
@@ -911,6 +913,18 @@ function openModal(index) {
         let docVal = item['No Doc'] || generateUniqueDocCode(dateVal);
         let idDoToVal = item['ID DO-TO'] || '';
 
+        let gudangAsalOptions = (db.gudang || []).map(g => 
+            `<option value="${g['Kode Gudang']}" ${item['Gudang Asal'] === g['Kode Gudang'] ? 'selected' : ''}>${g['Nama Gudang']}</option>`
+        ).join('');
+
+        let gudangTujuanOptions = (db.gudang || []).map(g => 
+            `<option value="${g['Kode Gudang']}" ${item['Gudang Tujuan'] === g['Kode Gudang'] ? 'selected' : ''}>${g['Nama Gudang']}</option>`
+        ).join('');
+
+        let projectOptions = (db.project || []).map(p => 
+            `<option value="${p['Kode Project']}" ${item['Kode Project'] === p['Kode Project'] ? 'selected' : ''}>${p['Nama Project']}</option>`
+        ).join('');
+
         let headerHTML = `
             <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4 bg-gray-50 p-4 rounded border">
                 <div>
@@ -935,24 +949,24 @@ function openModal(index) {
                 </div>
                 <div>
                     <label class="block text-[8pt] font-medium text-gray-700 mb-1">Gudang Asal</label>
-                    <input list="list-gudang-asal" name="Gudang Asal" value="${item['Gudang Asal'] || ''}" oninput="onTipeTransaksiChange(); onGudangAsalChange();" onchange="onTipeTransaksiChange(); onGudangAsalChange();" class="w-full border p-1.5 rounded text-[8pt]" placeholder="Ketik / Pilih Gudang Asal">
-                    <datalist id="list-gudang-asal">
-                        ${(db.gudang || []).map(g => `<option value="${g['Kode Gudang']}">${g['Nama Gudang']}</option>`).join('')}
-                    </datalist>
+                    <select name="Gudang Asal" onchange="onTipeTransaksiChange(); onGudangAsalChange();" class="w-full border p-1.5 rounded text-[8pt]">
+                        <option value="">-- Pilih Gudang Asal --</option>
+                        ${gudangAsalOptions}
+                    </select>
                 </div>
                 <div>
                     <label class="block text-[8pt] font-medium text-gray-700 mb-1">Gudang Tujuan</label>
-                    <input list="list-gudang-tujuan" name="Gudang Tujuan" value="${item['Gudang Tujuan'] || ''}" class="w-full border p-1.5 rounded text-[8pt]" placeholder="Ketik / Pilih Gudang Tujuan">
-                    <datalist id="list-gudang-tujuan">
-                        ${(db.gudang || []).map(g => `<option value="${g['Kode Gudang']}">${g['Nama Gudang']}</option>`).join('')}
-                    </datalist>
+                    <select name="Gudang Tujuan" class="w-full border p-1.5 rounded text-[8pt]">
+                        <option value="">-- Pilih Gudang Tujuan --</option>
+                        ${gudangTujuanOptions}
+                    </select>
                 </div>
                 <div>
                     <label class="block text-[8pt] font-medium text-gray-700 mb-1">Kode Project</label>
-                    <input list="list-kode-project" name="Kode Project" value="${item['Kode Project'] || ''}" class="w-full border p-1.5 rounded text-[8pt]" placeholder="Ketik / Pilih Project">
-                    <datalist id="list-kode-project">
-                        ${(db.project || []).map(p => `<option value="${p['Kode Project']}">${p['Nama Project']}</option>`).join('')}
-                    </datalist>
+                    <select id="list-kode-project" name="Kode Project" class="w-full border p-1.5 rounded text-[8pt]">
+                        <option value="">-- Pilih Project --</option>
+                        ${projectOptions}
+                    </select>
                 </div>
                 <div>
                     <label class="block text-[8pt] font-medium text-gray-700 mb-1">Petugas <span class="text-red-500">*</span></label>
@@ -1160,7 +1174,6 @@ function saveData() {
     const formData = new FormData(form);
     let isNewInput = (editIndex === -1);
 
-    // Validasi Cek Duplikasi Kode Project di Master Project
     if (currentSection === 'project') {
         let kodeProjInput = formData.get('Kode Project')?.trim().toLowerCase();
         let isDuplicate = (db.project || []).some((p, index) => {
