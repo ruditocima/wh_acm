@@ -43,7 +43,7 @@ const initialData = {
     ]
 };
 
-// --- INISIALISASI DATABASE (Solusi Bug Tombol Simpan) ---
+// --- INISIALISASI DATABASE ---
 if (!window.db) {
     let localData = localStorage.getItem('wms_app_data');
     window.db = localData ? JSON.parse(localData) : initialData;
@@ -142,7 +142,7 @@ function autoGenerateNextDrumBarang(jenisVal, kategoriVal) {
     return newBarangObj;
 }
 
-/* Helper fungsi untuk Searchable Dropdown */
+/* Helper fungsi Searchable Dropdown */
 function getGudangName(code) {
     if (!code) return '';
     let g = (window.db.gudang || []).find(x => x['Kode Gudang'] === code);
@@ -1091,12 +1091,14 @@ function showBreakdownProyek(namaBarang) {
 }
 
 function openModal(index) {
-    editIndex = index;
+    editIndex = parseInt(index, 10);
+    if (isNaN(editIndex)) editIndex = -1;
+
     const btnSave = document.getElementById('btn-save');
     if (btnSave) btnSave.classList.remove('hidden');
 
     let btnPdf = document.getElementById('btn-print-pdf');
-    if(!btnPdf && btnSave && btnSave.parentNode) {
+    if (!btnPdf && btnSave && btnSave.parentNode) {
         btnPdf = document.createElement('button');
         btnPdf.id = 'btn-print-pdf';
         btnPdf.className = "px-4 py-2 bg-red-600 text-white rounded hover:bg-red-500 text-[9pt] hidden";
@@ -1108,15 +1110,15 @@ function openModal(index) {
     if (!form) return;
     form.innerHTML = '';
     
-    const item = index === -1 ? {} : window.db[currentSection][index];
+    const item = (editIndex === -1 || !window.db[currentSection]) ? {} : (window.db[currentSection][editIndex] || {});
     const modalTitle = document.getElementById('modal-title');
-    if (modalTitle) modalTitle.innerText = index === -1 ? 'Tambah Data' : 'Edit Data';
+    if (modalTitle) modalTitle.innerText = editIndex === -1 ? 'Tambah Data' : 'Edit Data';
 
     if (currentSection === 'transaksi') {
         if (btnPdf) {
-            if (index !== -1) {
+            if (editIndex !== -1) {
                 btnPdf.classList.remove('hidden');
-                btnPdf.onclick = function() { printNotaPDF(window.db.transaksi[index]); };
+                btnPdf.onclick = function() { printNotaPDF(window.db.transaksi[editIndex]); };
             } else {
                 btnPdf.classList.add('hidden');
             }
@@ -1233,7 +1235,7 @@ function openModal(index) {
 
         onGudangAsalChange();
 
-        if (index === -1) {
+        if (editIndex === -1) {
             addTransactionRow();
         } else {
             let sameDocItems = (window.db.transaksi || []).filter(t => t['No Doc'] === item['No Doc']);
@@ -1273,6 +1275,7 @@ function openModal(index) {
         }
         form.innerHTML += `<div><label class="block text-[9pt] font-medium mb-1 text-gray-700">${key}</label>${inputHtml}</div>`;
     });
+
     const modal = document.getElementById('modal');
     if (modal) modal.classList.remove('hidden');
 }
@@ -1395,118 +1398,143 @@ window.autoConvertCableStock = function(tglTransaksi, petugas) {
 };
 
 function saveData() {
-    const form = document.getElementById('data-form');
-    if (!form) return;
-    
-    if (!form.checkValidity()) {
-        form.reportValidity();
-        return;
-    }
-
-    if (currentSection === 'transaksi') {
-        if (!validateCurrentRows()) {
-            return;
-        }
-    }
-
-    const formData = new FormData(form);
-    let isNewInput = (editIndex === -1);
-
-    if (currentSection === 'project') {
-        let kodeProjInput = formData.get('Kode Project')?.trim().toLowerCase();
-        let isDuplicate = (window.db.project || []).some((p, index) => {
-            if (!isNewInput && index === editIndex) return false;
-            return (p['Kode Project'] || '').trim().toLowerCase() === kodeProjInput;
-        });
-
-        if (isDuplicate) {
-            alert('Kode Project sudah digunakan! Harap gunakan Kode Project yang lain.');
-            return;
-        }
-    }
-
-    if (currentSection === 'transaksi') {
-        let tgl = formData.get('Tanggal');
-        let idDoTo = formData.get('ID DO-TO'); 
-        let docVal = formData.get('No Doc'); 
-        let tipe = formData.get('Tipe Transaksi');
-        let asal = formData.get('Gudang Asal');
-        let tujuan = formData.get('Gudang Tujuan');
-        let proj = formData.get('Kode Project');
-        let petugas = formData.get('Petugas');
-        let ket = formData.get('Keterangan');
-
-        let kats = formData.getAll('Kategori[]');
-        let jens = formData.getAll('Jenis[]');
-        let kbs = formData.getAll('Kode Barang[]');
-        let nbs = formData.getAll('Nama Barang (Auto)[]');
-        let jmls = formData.getAll('Jumlah[]');
-
-        if (kats.length === 0) {
-            alert("Minimal harus ada 1 barang dalam transaksi!");
+    try {
+        const form = document.getElementById('data-form');
+        if (!form) {
+            alert("Error: Elemen modal #data-form tidak ditemukan!");
             return;
         }
 
-        let newItems = [];
-        for(let i = 0; i < kats.length; i++){
-            newItems.push({
-                "Tanggal": tgl,
-                "No Doc": docVal,
-                "ID DO-TO": idDoTo,
-                "Tipe Transaksi": tipe,
-                "Gudang Asal": asal,
-                "Gudang Tujuan": tujuan,
-                "Kode Project": proj,
-                "Kategori": kats[i],
-                "Jenis": jens[i],
-                "Kode Barang": kbs[i],
-                "Nama Barang (Auto)": nbs[i],
-                "Jumlah": parseInt(jmls[i] || 0),
-                "Petugas": petugas,
-                "Keterangan": ket
+        if (typeof form.checkValidity === 'function' && !form.checkValidity()) {
+            if (typeof form.reportValidity === 'function') form.reportValidity();
+            return;
+        }
+
+        let editIdx = parseInt(editIndex, 10);
+        let isNewInput = (isNaN(editIdx) || editIdx === -1);
+
+        if (currentSection === 'transaksi') {
+            if (!validateCurrentRows()) return;
+        }
+
+        let inputs = form.querySelectorAll('input, select, textarea');
+
+        // Validasi Duplikasi Kode Project
+        if (currentSection === 'project') {
+            let kodeInputEl = form.querySelector('[name="Kode Project"]');
+            let kodeProjInput = kodeInputEl ? kodeInputEl.value.trim().toLowerCase() : '';
+
+            if (!kodeProjInput) {
+                alert('Kode Project tidak boleh kosong!');
+                return;
+            }
+
+            let isDuplicate = (window.db.project || []).some((p, index) => {
+                if (!isNewInput && index === editIdx) return false;
+                return (p['Kode Project'] || '').trim().toLowerCase() === kodeProjInput;
             });
+
+            if (isDuplicate) {
+                alert('Kode Project sudah digunakan! Harap gunakan Kode Project yang lain.');
+                return;
+            }
         }
 
-        if (!window.db.transaksi) window.db.transaksi = [];
-        
-        if (isNewInput) {
-            window.db.transaksi.push(...newItems); 
+        // Simpan Data
+        if (currentSection === 'transaksi') {
+            let tgl = form.querySelector('[name="Tanggal"]')?.value || '';
+            let idDoTo = form.querySelector('[name="ID DO-TO"]')?.value || '';
+            let docVal = form.querySelector('[name="No Doc"]')?.value || '';
+            let tipe = form.querySelector('[name="Tipe Transaksi"]')?.value || '';
+            let asal = form.querySelector('[name="Gudang Asal"]')?.value || '';
+            let tujuan = form.querySelector('[name="Gudang Tujuan"]')?.value || '';
+            let proj = form.querySelector('[name="Kode Project"]')?.value || '';
+            let petugas = form.querySelector('[name="Petugas"]')?.value || '';
+            let ket = form.querySelector('[name="Keterangan"]')?.value || '';
+
+            let kats = Array.from(form.querySelectorAll('[name="Kategori[]"]')).map(e => e.value);
+            let jens = Array.from(form.querySelectorAll('[name="Jenis[]"]')).map(e => e.value);
+            let kbs = Array.from(form.querySelectorAll('[name="Kode Barang[]"]')).map(e => e.value);
+            let nbs = Array.from(form.querySelectorAll('[name="Nama Barang (Auto)[]"]')).map(e => e.value);
+            let jmls = Array.from(form.querySelectorAll('[name="Jumlah[]"]')).map(e => e.value);
+
+            if (kats.length === 0) {
+                alert("Minimal harus ada 1 barang dalam transaksi!");
+                return;
+            }
+
+            let newItems = [];
+            for (let i = 0; i < kats.length; i++) {
+                newItems.push({
+                    "Tanggal": tgl,
+                    "No Doc": docVal,
+                    "ID DO-TO": idDoTo,
+                    "Tipe Transaksi": tipe,
+                    "Gudang Asal": asal,
+                    "Gudang Tujuan": tujuan,
+                    "Kode Project": proj,
+                    "Kategori": kats[i],
+                    "Jenis": jens[i],
+                    "Kode Barang": kbs[i],
+                    "Nama Barang (Auto)": nbs[i],
+                    "Jumlah": parseInt(jmls[i] || 0),
+                    "Petugas": petugas,
+                    "Keterangan": ket
+                });
+            }
+
+            if (!window.db.transaksi) window.db.transaksi = [];
+
+            if (isNewInput) {
+                window.db.transaksi.push(...newItems);
+            } else {
+                window.db.transaksi = window.db.transaksi.filter(t => t['No Doc'] !== docVal);
+                window.db.transaksi.push(...newItems);
+            }
+
+            autoConvertCableStock(tgl, petugas);
         } else {
-            window.db.transaksi = window.db.transaksi.filter(t => t['No Doc'] !== docVal);
-            window.db.transaksi.push(...newItems);
+            let newItem = {};
+            inputs.forEach(input => {
+                if (input.name && !input.name.endsWith('[]')) {
+                    newItem[input.name] = input.value;
+                }
+            });
+
+            if (!window.db[currentSection]) {
+                window.db[currentSection] = [];
+            }
+
+            if (isNewInput) {
+                window.db[currentSection].push(newItem);
+            } else {
+                if (editIdx >= 0 && editIdx < window.db[currentSection].length) {
+                    window.db[currentSection][editIdx] = newItem;
+                } else {
+                    window.db[currentSection].push(newItem);
+                }
+            }
         }
 
-        autoConvertCableStock(tgl, petugas);
-    } 
-    else {
-        let newItem = {};
-        for (let [key, value] of formData.entries()) { 
-            newItem[key] = value; 
-        }
-        
-        if (!window.db[currentSection]) {
-            window.db[currentSection] = [];
-        }
-        
+        saveToLocal();
+        syncToFirebase();
+
         if (isNewInput) {
-            window.db[currentSection].push(newItem);
+            let lanjut = confirm("Data berhasil disimpan! Apakah Anda ingin lanjut Input Baru?");
+            if (lanjut) {
+                openModal(-1);
+            } else {
+                closeModal();
+                renderTable(currentSection);
+            }
         } else {
-            window.db[currentSection][editIndex] = newItem;
+            alert("Data berhasil diperbarui!");
+            closeModal();
+            renderTable(currentSection);
         }
-    }
 
-    saveToLocal();
-    syncToFirebase();
-    
-    if (isNewInput) {
-        let lanjut = confirm("Data berhasil disimpan! Apakah Anda ingin lanjut Input Baru?");
-        if (lanjut) openModal(-1);
-        else { 
-            closeModal(); 
-            renderTable(currentSection); 
-        }
-    } else {
-        closeModal();
-        renderTable(currentSection); 
+    } catch (err) {
+        console.error("Save Error:", err);
+        alert("Terjadi kesalahan saat menyimpan: " + err.message);
     }
 }
