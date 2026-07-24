@@ -1,38 +1,38 @@
 <!DOCTYPE html>
-<html lang="id">
+<html lang="id">[cite: 2]
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Warehouse Management</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+    <meta charset="UTF-8">[cite: 2]
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">[cite: 2]
+    <title>Warehouse Management</title>[cite: 2]
+    <script src="https://cdn.tailwindcss.com"></script>[cite: 2]
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>[cite: 2]
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>[cite: 2]
     <style>
-        .table-compact th, .table-compact td { padding: 0.25rem 0.5rem; }
+        .table-compact th, .table-compact td { padding: 0.25rem 0.5rem; }[cite: 2]
     </style>
 </head>
-<body class="bg-gray-50 min-h-screen">
+<body class="bg-gray-50 min-h-screen">[cite: 2]
 
     <!-- ================= FORM LOGIN ================= -->
-    <div id="login-section" class="flex items-center justify-center min-h-screen p-4">
-        <div class="bg-white p-8 rounded-xl shadow-2xl w-full max-w-md border border-gray-100">
-            <div class="text-center mb-6">
-                <h1 class="text-2xl font-bold text-indigo-900">WMS Login</h1>
-                <p class="text-xs text-gray-500 mt-1">PT Acero Cetha Metalindo</p>
+    <div id="login-section" class="flex items-center justify-center min-h-screen p-4">[cite: 2]
+        <div class="bg-white p-8 rounded-xl shadow-2xl w-full max-w-md border border-gray-100">[cite: 2]
+            <div class="text-center mb-6">[cite: 2]
+                <h1 class="text-2xl font-bold text-indigo-900">WMS Login</h1>[cite: 2]
+                <p class="text-xs text-gray-500 mt-1">PT Acero Cetha Metalindo</p>[cite: 2]
             </div>
             
-            <div id="login-error" class="hidden bg-red-100 border border-red-400 text-red-700 px-4 py-2 rounded text-xs mb-4"></div>
+            <div id="login-error" class="hidden bg-red-100 border border-red-400 text-red-700 px-4 py-2 rounded text-xs mb-4"></div>[cite: 2]
 
-            <form id="login-form" onsubmit="handleLogin(event)" class="space-y-4">
+            <form id="login-form" onsubmit="handleLogin(event)" class="space-y-4">[cite: 2]
                 <div>
-                    <label class="block text-xs font-medium text-gray-700 mb-1">Email</label>
-                    <input type="email" id="login-email" required class="w-full border p-2.5 rounded text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" placeholder="admin@acero.com">
+                    <label class="block text-xs font-medium text-gray-700 mb-1">Email</label>[cite: 2]
+                    <input type="email" id="login-email" required class="w-full border p-2.5 rounded text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" placeholder="admin@acero.com">[cite: 2]
                 </div>
                 <div>
-                    <label class="block text-xs font-medium text-gray-700 mb-1">Password</label>
-                    <input type="password" id="login-password" required class="w-full border p-2.5 rounded text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" placeholder="••••••••">
+                    <label class="block text-xs font-medium text-gray-700 mb-1">Password</label>[cite: 2]
+                    <input type="password" id="login-password" required class="w-full border p-2.5 rounded text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" placeholder="••••••••">[cite: 2]
                 </div>
-                <button type="submit" class="w-full bg-indigo-800 hover:bg-indigo-700 text-white font-bold py-2.5 rounded text-sm transition duration-200">
+                <button type="submit" class="w-full bg-indigo-800 hover:bg-indigo-700 text-white font-bold py-2.5 rounded text-sm transition duration-200">[cite: 2]
                     Masuk
                 </button>
             </form>
@@ -40,51 +40,51 @@
     </div>
 
     <!-- ================= APLIKASI UTAMA ================= -->
-    <div id="app-section" class="hidden max-w-7xl mx-auto p-4 md:p-8">
-        <header class="fixed top-0 left-0 right-0 z-50 bg-indigo-900 text-white p-4 md:px-8 shadow-lg flex justify-between items-center max-w-7xl mx-auto md:rounded-t-xl">
+    <div id="app-section" class="hidden max-w-7xl mx-auto p-4 md:p-8">[cite: 2]
+        <header class="fixed top-0 left-0 right-0 z-50 bg-indigo-900 text-white p-4 md:px-8 shadow-lg flex justify-between items-center max-w-7xl mx-auto md:rounded-t-xl">[cite: 2]
             <div>
-                <h1 class="text-xl md:text-2xl font-bold">Warehouse Management System</h1>
-                <p class="text-xs text-indigo-200 mt-0.5">Selamat Datang : <span id="user-email-text" class="font-semibold"></span></p>
+                <h1 class="text-xl md:text-2xl font-bold">Warehouse Management System</h1>[cite: 2]
+                <p class="text-xs text-indigo-200 mt-0.5">Selamat Datang : <span id="user-email-text" class="font-semibold"></span></p>[cite: 2]
             </div>
-            <div class="flex items-center space-x-2">
-                <button onclick="renderDashboard()" class="bg-indigo-700 hover:bg-indigo-600 px-4 py-2 rounded text-[9pt] transition">Dashboard</button>
-                <button onclick="handleLogout()" class="bg-red-600 hover:bg-red-500 px-4 py-2 rounded text-[9pt] transition">Logout</button>
+            <div class="flex items-center space-x-2">[cite: 2]
+                <button onclick="renderDashboard()" class="bg-indigo-700 hover:bg-indigo-600 px-4 py-2 rounded text-[9pt] transition">Dashboard</button>[cite: 2]
+                <button onclick="handleLogout()" class="bg-red-600 hover:bg-red-500 px-4 py-2 rounded text-[9pt] transition">Logout</button>[cite: 2]
             </div>
         </header>
 
-        <div class="h-24"></div>
+        <div class="h-24"></div>[cite: 2]
 
-        <main id="main-content" class="bg-white p-6 rounded-b-xl shadow-md min-h-[500px]">
+        <main id="main-content" class="bg-white p-6 rounded-b-xl shadow-md min-h-[500px]">[cite: 2]
         </main>
         
-        <footer class="mt-6 text-[9pt] text-gray-500 text-left">
-            &copy; 2026 Acero Cetha Metalindo. Hak Cipta Dilindungi.
+        <footer class="mt-6 text-[9pt] text-gray-500 text-left">[cite: 2]
+            &copy; 2026 Acero Cetha Metalindo. Hak Cipta Dilindungi.[cite: 2]
         </footer>
     </div>
 
     <!-- ================= MODAL EDIT/TAMBAH DATA ================= -->
-    <div id="modal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center p-4 z-50">
-        <div class="bg-white p-6 rounded-xl w-full max-w-4xl shadow-2xl max-h-[90vh] overflow-y-auto">
-            <h2 id="modal-title" class="text-[11pt] font-bold mb-4">Edit Data</h2>
-            <div id="modal-body">
-                <form id="data-form">
-                    <div class="mb-4">
-                        <div class="flex justify-between items-center mb-2">
-                            <label class="block text-xs font-bold text-gray-700">Daftar Material</label>
+    <div id="modal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center p-4 z-50">[cite: 2]
+        <div class="bg-white p-6 rounded-xl w-full max-w-4xl shadow-2xl max-h-[90vh] overflow-y-auto">[cite: 2]
+            <h2 id="modal-title" class="text-[11pt] font-bold mb-4">Edit Data</h2>[cite: 2]
+            <div id="modal-body">[cite: 2]
+                <form id="data-form">[cite: 2]
+                    <div class="mb-4">[cite: 2]
+                        <div class="flex justify-between items-center mb-2">[cite: 2]
+                            <label class="block text-xs font-bold text-gray-700">Daftar Material</label>[cite: 2]
                         </div>
-                        <div id="material-rows-container" class="space-y-2"></div>
+                        <div id="material-rows-container" class="space-y-2"></div>[cite: 2]
                     </div>
                 </form>
             </div>
-            <div class="mt-6 flex justify-end space-x-3 border-t pt-4">
-                <button onclick="closeModal()" class="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300 text-[9pt]">Tutup</button>
-                <button id="btn-save" onclick="saveData()" class="px-4 py-2 bg-indigo-700 text-white rounded hover:bg-indigo-600 text-[9pt]">Simpan</button>
+            <div class="mt-6 flex justify-end space-x-3 border-t pt-4">[cite: 2]
+                <button onclick="closeModal()" class="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300 text-[9pt]">Tutup</button>[cite: 2]
+                <button id="btn-save" onclick="saveData()" class="px-4 py-2 bg-indigo-700 text-white rounded hover:bg-indigo-600 text-[9pt]">Simpan</button>[cite: 2]
             </div>
         </div>
     </div>
 
     <!-- ================= PEMANGGILAN MODUL EXTERNAL ================= -->
-    <script type="module" src="auth.js"></script>
-    <script src="warehouse.js"></script>
+    <script type="module" src="auth.js"></script>[cite: 2]
+    <script src="warehouse.js"></script>[cite: 2]
 </body>
 </html>
