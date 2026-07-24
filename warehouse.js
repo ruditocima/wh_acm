@@ -10,7 +10,7 @@ const initialData = {
             "Nama Project": "Proyek A",
             "Type": "Deployment",
             "Region": "Region 1",
-            "No PR/PO": "PO-2026-001",
+            "No PR-PO": "POS-2026-001",
             "PO Plan": "100",
             "PO Final": "100",
             "Status PO": "Approved",
@@ -465,7 +465,7 @@ function renderTable(section, searchQuery = '') {
         } else if (section === 'barang') {
             keys = ['Kategori', 'Jenis', 'Kode Barang', 'Nama Barang', ...keys.filter(k => !['Kategori', 'Jenis', 'Kode Barang', 'Nama Barang'].includes(k))];
         } else if (section === 'project') {
-            keys = ['Periode', 'Kode Project', 'Nama Project', 'Type', 'Region', 'No PR/PO', 'PO Plan', 'PO Final', 'Status PO', 'Status SND', 'Status Doc', ...keys.filter(k => !['Periode', 'Kode Project', 'Nama Project', 'Type', 'Region', 'No PR/PO', 'PO Plan', 'PO Final', 'Status PO', 'Status SND', 'Status Doc'].includes(k))];
+            keys = ['Periode', 'Kode Project', 'Nama Project', 'Type', 'Region', 'No PR-PO', 'PO Plan', 'PO Final', 'Status PO', 'Status SND', 'Status Doc', ...keys.filter(k => !['Periode', 'Kode Project', 'Nama Project', 'Type', 'Region', 'No PR-PO', 'PO Plan', 'PO Final', 'Status PO', 'Status SND', 'Status Doc'].includes(k))];
         }
 
         keys.forEach(k => html += `<th class="border text-[9pt] font-bold uppercase text-gray-600">${k}</th>`);
@@ -490,7 +490,7 @@ function renderTable(section, searchQuery = '') {
         if(section === 'barang') defaultKeys = ["Kategori", "Jenis", "Kode Barang", "Nama Barang"];
         else if(section === 'transaksi') defaultKeys = ["Tanggal", "No Doc", "ID DO-TO", "Tipe Transaksi", "Gudang Asal", "Gudang Tujuan", "Kode Project", "Kategori", "Jenis", "Kode Barang", "Nama Barang (Auto)", "Jumlah", "Petugas", "Keterangan"];
         else if(section === 'gudang') defaultKeys = ["Kode Gudang", "Nama Gudang"];
-        else if(section === 'project') defaultKeys = ["Periode", "Kode Project", "Nama Project", "Type", "Region", "No PR/PO", "PO Plan", "PO Final", "Status PO", "Status SND", "Status Doc"];
+        else if(section === 'project') defaultKeys = ["Periode", "Kode Project", "Nama Project", "Type", "Region", "No PR-PO", "PO Plan", "PO Final", "Status PO", "Status SND", "Status Doc"];
 
         defaultKeys.forEach(k => html += `<th class="border text-[9pt] font-bold uppercase text-gray-600">${k}</th>`);
         html += `<th class="border text-[9pt] font-bold uppercase text-gray-600">Aksi</th></tr></thead><tbody><tr><td colspan="${defaultKeys.length + 1}" class="text-center p-4 text-gray-400">Tidak ada data ditemukan</td></tr>`;
@@ -1258,7 +1258,7 @@ function openModal(index) {
     if (currentSection === 'barang') {
         keys = ['Kategori', 'Jenis', 'Kode Barang', 'Nama Barang'];
     } else if (currentSection === 'project') {
-        keys = ['Periode', 'Kode Project', 'Nama Project', 'Type', 'Region', 'No PR/PO', 'PO Plan', 'PO Final', 'Status PO', 'Status SND', 'Status Doc'];
+        keys = ['Periode', 'Kode Project', 'Nama Project', 'Type', 'Region', 'No PR-PO', 'PO Plan', 'PO Final', 'Status PO', 'Status SND', 'Status Doc'];
     } else if (currentSection === 'gudang') {
         keys = ['Kode Gudang', 'Nama Gudang'];
     } else {
