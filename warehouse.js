@@ -17,7 +17,7 @@ const initialData = {
             "Permit": "BA Open",
             "Status SND": "SNDK",
             "Civil Work": "Done",
-            "Status Doc": "Complete"
+            "Status Doc": "On Progres"
         }
     ],
     "barang": [
@@ -1307,9 +1307,16 @@ function openModal(index) {
             });
             inputHtml = `<select name="${key}" class="w-full border p-2 rounded text-[9pt]" ${isRequired}>${opts}</select>`;
         } else if (key === 'Status SND' && currentSection === 'project') {
-            const sndStatusOptions = ['SNDK', 'Design', 'Pre APD', 'DRM', 'APD', 'Pre ABD', 'ABD', 'RFSC', 'Closed'];
+            const sndStatusOptions = ['SNDK', 'Design', 'Pre APD', 'APD', 'DRM', 'Pre ABD', 'ABD', 'Closed'];
             let opts = `<option value="">-- Pilih Status SND --</option>`;
             sndStatusOptions.forEach(opt => {
+                opts += `<option value="${opt}" ${item[key] === opt ? 'selected' : ''}>${opt}</option>`;
+            });
+            inputHtml = `<select name="${key}" class="w-full border p-2 rounded text-[9pt]" ${isRequired}>${opts}</select>`;
+        } else if (key === 'Status Doc' && currentSection === 'project') {
+            const docStatusOptions = ['On Progres', 'Upload GDOC', 'Review YOFC', 'Review User', 'Revisi', 'Rekoncile', 'Closed'];
+            let opts = `<option value="">-- Pilih Status Doc --</option>`;
+            docStatusOptions.forEach(opt => {
                 opts += `<option value="${opt}" ${item[key] === opt ? 'selected' : ''}>${opt}</option>`;
             });
             inputHtml = `<select name="${key}" class="w-full border p-2 rounded text-[9pt]" ${isRequired}>${opts}</select>`;
