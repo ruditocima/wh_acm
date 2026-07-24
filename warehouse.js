@@ -1307,7 +1307,7 @@ function openModal(index) {
             });
             inputHtml = `<select name="${key}" class="w-full border p-2 rounded text-[9pt]" ${isRequired}>${opts}</select>`;
         } else if (key === 'Status SND' && currentSection === 'project') {
-            const sndStatusOptions = ['SNDK', 'Design', 'Pre APD', 'APD', 'DRM', 'Pre ABD', 'ABD', 'Closed'];
+            const sndStatusOptions = ['SNDK', 'Design', 'Pre APD', 'DRM', 'APD', 'Pre ABD', 'ABD', 'RFSC', 'Closed'];
             let opts = `<option value="">-- Pilih Status SND --</option>`;
             sndStatusOptions.forEach(opt => {
                 opts += `<option value="${opt}" ${item[key] === opt ? 'selected' : ''}>${opt}</option>`;
