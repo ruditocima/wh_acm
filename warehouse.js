@@ -1,6 +1,20 @@
 const initialData = {
     "gudang": [{"Kode Gudang": "GDG-01", "Nama Gudang": "Gudang Pusat"}, {"Kode Gudang": "GDG-02", "Nama Gudang": "Gudang Cabang"}],
-    "project": [{"Kode Project": "PRJ-001", "Nama Project": "Proyek A"}],
+    "project": [
+        {
+            "Periode": "2026-07-16",
+            "Kode Project": "PRJ-001", 
+            "Nama Project": "Proyek A",
+            "Type": "Deployment",
+            "Region": "Region 1",
+            "No PR/PO": "PO-2026-001",
+            "PO Plan": "100",
+            "PO Final": "100",
+            "Status PO": "Approved",
+            "Status SND": "Done",
+            "Status Doc": "Complete"
+        }
+    ],
     "barang": [
         {"Kategori": "Material", "Jenis": "Besi", "Kode Barang": "BRG-001", "Nama Barang": "Besi Beton"}, 
         {"Kategori": "Material", "Jenis": "Semen", "Kode Barang": "BRG-002", "Nama Barang": "Semen Tiga Roda"},
@@ -55,6 +69,77 @@ function deleteData(index) {
         syncToFirebase();
         renderTable(currentSection);
     }
+}
+
+/* Helper fungsi untuk menghitung stok barang di Gudang tertentu */
+function getGudangStock(gudangKode, kodeBarang) {
+    if (!gudangKode || !kodeBarang) return 0;
+    let st = 0;
+    (db.transaksi || []).forEach(t => {
+        if (t['Kode Barang'] !== kodeBarang) return;
+        let jml = parseInt(t['Jumlah'] || 0);
+        if (t['Gudang Tujuan'] === gudangKode) st += jml;
+        if (t['Gudang Asal'] === gudangKode) st -= jml;
+    });
+    return st;
+}
+
+/* Helper fungsi untuk Auto Generate Kode Barang Baru bertipe Drum */
+function autoGenerateNextDrumBarang(jenisVal, kategoriVal) {
+    let drumBarang = (db.barang || []).filter(b => 
+        (b['Kategori'] || '').toLowerCase() === (kategoriVal || 'cable').toLowerCase() &&
+        b['Jenis'] === jenisVal &&
+        (b['Kode Barang'] || '').startsWith('Drum')
+    );
+
+    if (drumBarang.length === 0) return null;
+
+    let maxSeq = 0;
+    let basePrefix = "";
+    let padLen = 2;
+    let sampleNama = drumBarang[0]['Nama Barang'] || '';
+
+    drumBarang.forEach(b => {
+        let code = b['Kode Barang'] || '';
+        let match = code.match(/^(.*?)(\d+)$/);
+        if (match) {
+            basePrefix = match[1];
+            let seqStr = match[2];
+            padLen = seqStr.length;
+            let seq = parseInt(seqStr, 10);
+            if (seq > maxSeq) {
+                maxSeq = seq;
+                sampleNama = b['Nama Barang'] || sampleNama;
+            }
+        }
+    });
+
+    if (!basePrefix) return null;
+
+    let nextSeq = maxSeq + 1;
+    let nextSeqStr = nextSeq.toString().padStart(padLen, '0');
+    let newKode = basePrefix + nextSeqStr;
+
+    let newNama = sampleNama;
+    let namaMatch = sampleNama.match(/^(.*?)(\d+)$/);
+    if (namaMatch) {
+        newNama = namaMatch[1] + nextSeqStr;
+    }
+
+    let newBarangObj = {
+        "Kategori": kategoriVal,
+        "Jenis": jenisVal,
+        "Kode Barang": newKode,
+        "Nama Barang": newNama
+    };
+
+    if (!db.barang.find(b => b['Kode Barang'] === newKode)) {
+        db.barang.push(newBarangObj);
+        saveToLocal();
+        syncToFirebase();
+    }
+
+    return newBarangObj;
 }
 
 /* Helper fungsi untuk Searchable Dropdown */
@@ -341,7 +426,7 @@ function renderTable(section, searchQuery = '') {
         );
     }
     
-    let exportBtn = (section === 'transaksi' || section === 'barang') ? `<button onclick="exportCSV()" class="bg-green-600 text-white px-4 py-2 rounded shadow hover:bg-green-500 mr-2 text-[9pt]">Export CSV</button>` : '';
+    let exportBtn = (section === 'transaksi' || section === 'barang' || section === 'project') ? `<button onclick="exportCSV()" class="bg-green-600 text-white px-4 py-2 rounded shadow hover:bg-green-500 mr-2 text-[9pt]">Export CSV</button>` : '';
     
     let searchBar = '';
     if (section === 'transaksi') {
@@ -379,6 +464,8 @@ function renderTable(section, searchQuery = '') {
             keys = ['Tanggal', 'No Doc', 'ID DO-TO', 'Tipe Transaksi', 'Gudang Asal', 'Gudang Tujuan', 'Kode Project', 'Kategori', 'Jenis', 'Kode Barang', 'Nama Barang (Auto)', ...keys.filter(k => !['Tanggal', 'No Doc', 'ID DO-TO', 'Tipe Transaksi', 'Gudang Asal', 'Gudang Tujuan', 'Kode Project', 'Kategori', 'Jenis', 'Kode Barang', 'Nama Barang (Auto)'].includes(k))];
         } else if (section === 'barang') {
             keys = ['Kategori', 'Jenis', 'Kode Barang', 'Nama Barang', ...keys.filter(k => !['Kategori', 'Jenis', 'Kode Barang', 'Nama Barang'].includes(k))];
+        } else if (section === 'project') {
+            keys = ['Periode', 'Kode Project', 'Nama Project', 'Type', 'Region', 'No PR/PO', 'PO Plan', 'PO Final', 'Status PO', 'Status SND', 'Status Doc', ...keys.filter(k => !['Periode', 'Kode Project', 'Nama Project', 'Type', 'Region', 'No PR/PO', 'PO Plan', 'PO Final', 'Status PO', 'Status SND', 'Status Doc'].includes(k))];
         }
 
         keys.forEach(k => html += `<th class="border text-[9pt] font-bold uppercase text-gray-600">${k}</th>`);
@@ -403,7 +490,7 @@ function renderTable(section, searchQuery = '') {
         if(section === 'barang') defaultKeys = ["Kategori", "Jenis", "Kode Barang", "Nama Barang"];
         else if(section === 'transaksi') defaultKeys = ["Tanggal", "No Doc", "ID DO-TO", "Tipe Transaksi", "Gudang Asal", "Gudang Tujuan", "Kode Project", "Kategori", "Jenis", "Kode Barang", "Nama Barang (Auto)", "Jumlah", "Petugas", "Keterangan"];
         else if(section === 'gudang') defaultKeys = ["Kode Gudang", "Nama Gudang"];
-        else if(section === 'project') defaultKeys = ["Kode Project", "Nama Project"];
+        else if(section === 'project') defaultKeys = ["Periode", "Kode Project", "Nama Project", "Type", "Region", "No PR/PO", "PO Plan", "PO Final", "Status PO", "Status SND", "Status Doc"];
 
         defaultKeys.forEach(k => html += `<th class="border text-[9pt] font-bold uppercase text-gray-600">${k}</th>`);
         html += `<th class="border text-[9pt] font-bold uppercase text-gray-600">Aksi</th></tr></thead><tbody><tr><td colspan="${defaultKeys.length + 1}" class="text-center p-4 text-gray-400">Tidak ada data ditemukan</td></tr>`;
@@ -463,12 +550,33 @@ function onTipeTransaksiChange() {
     onGudangAsalChange();
 }
 
+function onGudangTujuanChange() {
+    const rows = document.querySelectorAll('#item-tbody tr');
+    rows.forEach(tr => {
+        let jenisSelect = tr.querySelector('select[name="Jenis[]"]');
+        if (jenisSelect && jenisSelect.value) {
+            let currentKode = tr.querySelector('select[name="Kode Barang[]"]')?.value || '';
+            onJenisChangeRow(jenisSelect, currentKode);
+        }
+    });
+}
+
 function onGudangAsalChange() {
     const tipeTransaksi = document.querySelector('[name="Tipe Transaksi"]')?.value;
     const gudangAsal = document.querySelector('[name="Gudang Asal"]')?.value;
     const projectListContainer = document.getElementById('project-list-items');
     const projectHidden = document.getElementById('project-val');
     const projectInput = document.getElementById('project-input');
+
+    // Refresh pilihan Kode Barang di seluruh baris saat Gudang Asal berubah
+    const rows = document.querySelectorAll('#item-tbody tr');
+    rows.forEach(tr => {
+        let jenisSelect = tr.querySelector('select[name="Jenis[]"]');
+        if (jenisSelect && jenisSelect.value) {
+            let currentKode = tr.querySelector('select[name="Kode Barang[]"]')?.value || '';
+            onJenisChangeRow(jenisSelect, currentKode);
+        }
+    });
 
     if (!projectListContainer) return;
 
@@ -513,51 +621,42 @@ function onGudangAsalChange() {
     projectListContainer.innerHTML = listHTML;
 }
 
-function getAvailableStockByCode() {
-    const tipeTransaksi = document.querySelector('[name="Tipe Transaksi"]')?.value || 'Masuk';
-    const selectedGudangAsal = document.querySelector('[name="Gudang Asal"]')?.value || '';
-    
-    if (tipeTransaksi !== 'Keluar' && tipeTransaksi !== 'Transfer') return null;
-
-    let stockMap = {};
-    (db.transaksi || []).forEach(t => {
-        let kode = t['Kode Barang'];
-        if (!kode) return;
-        let jml = parseInt(t['Jumlah'] || 0);
-
-        if (!stockMap[kode]) stockMap[kode] = 0;
-
-        if (selectedGudangAsal !== "") {
-            if (t['Gudang Tujuan'] === selectedGudangAsal) stockMap[kode] += jml;
-            if (t['Gudang Asal'] === selectedGudangAsal) stockMap[kode] -= jml;
-        } else {
-            if (t['Tipe Transaksi'] === 'Masuk') stockMap[kode] += jml;
-            if (t['Tipe Transaksi'] === 'Keluar') stockMap[kode] -= jml;
-        }
-    });
-
-    return stockMap;
-}
-
 function validateCurrentRows() {
     const tipeTransaksi = document.querySelector('[name="Tipe Transaksi"]')?.value || 'Masuk';
-    if (tipeTransaksi !== 'Keluar' && tipeTransaksi !== 'Transfer') return true;
-
-    let stockMap = getAvailableStockByCode();
-    if (!stockMap) return true;
+    const selectedGudangAsal = document.querySelector('[name="Gudang Asal"]')?.value || '';
+    const selectedGudangTujuan = document.querySelector('[name="Gudang Tujuan"]')?.value || '';
 
     const rows = document.querySelectorAll('#item-tbody tr');
     for (let row of rows) {
+        let kategori = row.querySelector('select[name="Kategori[]"]')?.value || '';
         let kodeBarang = row.querySelector('select[name="Kode Barang[]"]')?.value;
         let qtyInput = row.querySelector('input[name="Jumlah[]"]');
         let qty = parseInt(qtyInput?.value || 0);
 
-        if (kodeBarang) {
-            let sisaStok = stockMap[kodeBarang] || 0;
+        if ((tipeTransaksi === 'Keluar' || tipeTransaksi === 'Transfer') && kodeBarang && selectedGudangAsal) {
+            let sisaStok = getGudangStock(selectedGudangAsal, kodeBarang);
             if (qty > sisaStok) {
-                alert('Stok Kurang');
+                alert(`Stok ${kodeBarang} tidak mencukupi di Gudang Asal! (Sisa stok: ${sisaStok})`);
                 if (qtyInput) qtyInput.focus();
                 return false;
+            }
+        }
+
+        // Aturan Khusus Kategori Cable & Berawalan Drum (Maksimal Stok 3000)
+        if (kategori.toLowerCase() === 'cable' && kodeBarang && kodeBarang.startsWith('Drum')) {
+            if (qty > 3000) {
+                alert(`Jumlah input untuk ${kodeBarang} tidak boleh melebihi 3000!`);
+                if (qtyInput) qtyInput.focus();
+                return false;
+            }
+
+            if (tipeTransaksi === 'Masuk' || tipeTransaksi === 'Transfer') {
+                let currentTargetStock = getGudangStock(selectedGudangTujuan, kodeBarang);
+                if (currentTargetStock + qty > 3000) {
+                    alert(`Total stok ${kodeBarang} di Gudang Tujuan tidak boleh melebihi 3000! (Stok saat ini: ${currentTargetStock}, Input: ${qty})`);
+                    if (qtyInput) qtyInput.focus();
+                    return false;
+                }
             }
         }
     }
@@ -600,7 +699,7 @@ function addTransactionRow(item = {}) {
             <input type="text" name="Nama Barang (Auto)[]" value="${item['Nama Barang (Auto)'] || ''}" readonly class="w-full border p-1 rounded bg-gray-100 text-[8pt]">
         </td>
         <td class="border p-1">
-            <input type="number" name="Jumlah[]" value="${item['Jumlah'] || ''}" class="w-full border p-1 rounded text-[8pt] text-center" required min="1">
+            <input type="number" name="Jumlah[]" value="${item['Jumlah'] || ''}" class="w-full border p-1 rounded text-[8pt] text-center" required min="1" max="3000">
         </td>
         <td class="border p-1 text-center">
             <button type="button" onclick="this.closest('tr').remove()" class="text-red-500 hover:text-red-700 font-bold px-2">&times;</button>
@@ -653,31 +752,15 @@ function onJenisChangeRow(el, preselectKode = '') {
         const selectedGudangAsal = document.querySelector('[name="Gudang Asal"]')?.value || '';
         const selectedGudangTujuan = document.querySelector('[name="Gudang Tujuan"]')?.value || '';
 
-        let stockMap = {};
-        (db.transaksi || []).forEach(t => {
-            let kode = t['Kode Barang'];
-            if (!kode) return;
-            let jml = parseInt(t['Jumlah'] || 0);
-            if (!stockMap[kode]) stockMap[kode] = 0;
-
-            if (tipeTransaksi === 'Keluar' || tipeTransaksi === 'Transfer') {
-                if (selectedGudangAsal !== "") {
-                    if (t['Gudang Tujuan'] === selectedGudangAsal) stockMap[kode] += jml;
-                    if (t['Gudang Asal'] === selectedGudangAsal) stockMap[kode] -= jml;
-                } else {
-                    if (t['Tipe Transaksi'] === 'Masuk') stockMap[kode] += jml;
-                    if (t['Tipe Transaksi'] === 'Keluar') stockMap[kode] -= jml;
-                }
-            } else if (tipeTransaksi === 'Masuk') {
-                if (selectedGudangTujuan !== "") {
-                    if (t['Gudang Tujuan'] === selectedGudangTujuan) stockMap[kode] += jml;
-                    if (t['Gudang Asal'] === selectedGudangTujuan) stockMap[kode] -= jml;
-                } else {
-                    if (t['Tipe Transaksi'] === 'Masuk') stockMap[kode] += jml;
-                    if (t['Tipe Transaksi'] === 'Keluar') stockMap[kode] -= jml;
-                }
-            }
-        });
+        // Peringatan jika Gudang Asal / Tujuan belum dipilih
+        if ((tipeTransaksi === 'Keluar' || tipeTransaksi === 'Transfer') && !selectedGudangAsal) {
+            kodeSelect.innerHTML = '<option value="">-- Pilih Gudang Asal Dulu --</option>';
+            return;
+        }
+        if ((tipeTransaksi === 'Masuk' || tipeTransaksi === 'Transfer') && kategoriVal.toLowerCase() === 'cable' && !selectedGudangTujuan) {
+            kodeSelect.innerHTML = '<option value="">-- Pilih Gudang Tujuan Dulu --</option>';
+            return;
+        }
 
         let selectedKodeInRows = new Set();
         document.querySelectorAll('#item-tbody tr').forEach(row => {
@@ -687,14 +770,69 @@ function onJenisChangeRow(el, preselectKode = '') {
             }
         });
 
+        /* 1. Logika Khusus untuk Kategori Cable & Tipe Transaksi Masuk / Transfer */
+        if (kategoriVal.toLowerCase() === 'cable' && (tipeTransaksi === 'Masuk' || tipeTransaksi === 'Transfer')) {
+            let drumBarang = (db.barang || []).filter(b => 
+                (b['Kategori'] || '').toLowerCase() === 'cable' &&
+                b['Jenis'] === jenisVal &&
+                (b['Kode Barang'] || '').startsWith('Drum')
+            );
+
+            if (drumBarang.length > 0) {
+                let availableDrumBarang = drumBarang.filter(b => {
+                    // Jika Transfer: Stok di Gudang Asal HARUS > 0
+                    if (tipeTransaksi === 'Transfer') {
+                        let stokAsal = getGudangStock(selectedGudangAsal, b['Kode Barang']);
+                        if (stokAsal <= 0) return false;
+                    }
+                    // Stok di Gudang Tujuan HARUS 0
+                    let stokTujuan = getGudangStock(selectedGudangTujuan, b['Kode Barang']);
+                    return stokTujuan === 0;
+                });
+
+                let autoGenerated = false;
+                let autoGeneratedCode = '';
+
+                // Pada transaksi Masuk: Jika semua Drum stoknya > 0 di Gudang Tujuan, buat Kode Drum baru
+                if (tipeTransaksi === 'Masuk' && availableDrumBarang.length === 0) {
+                    let newBarang = autoGenerateNextDrumBarang(jenisVal, kategoriVal);
+                    if (newBarang) {
+                        availableDrumBarang = [newBarang];
+                        autoGenerated = true;
+                        autoGeneratedCode = newBarang['Kode Barang'];
+                    }
+                }
+
+                let nonDrumBarang = (db.barang || []).filter(b => 
+                    (b['Kategori'] || '').toLowerCase() === 'cable' &&
+                    b['Jenis'] === jenisVal &&
+                    !(b['Kode Barang'] || '').startsWith('Drum') &&
+                    !(b['Kode Barang'] || '').startsWith('Ext')
+                );
+
+                let finalFiltered = [...availableDrumBarang, ...nonDrumBarang].filter(b => !selectedKodeInRows.has(b['Kode Barang']));
+
+                finalFiltered.forEach(b => {
+                    let isSelected = (preselectKode === b['Kode Barang']) || (autoGenerated && b['Kode Barang'] === autoGeneratedCode);
+                    kodeSelect.innerHTML += `<option value="${b['Kode Barang']}" ${isSelected ? 'selected' : ''}>${b['Kode Barang']} - ${b['Nama Barang']}</option>`;
+                });
+
+                if (autoGenerated || preselectKode) {
+                    updateNamaBarangRow(kodeSelect);
+                }
+                return;
+            }
+        }
+
+        /* 2. Logika Umum (Termasuk Transaksi Keluar & Transaksi Lainnya) */
         let filteredBarang = (db.barang || []).filter(b => {
             if (b['Kategori'] !== kategoriVal || b['Jenis'] !== jenisVal) return false;
             if (selectedKodeInRows.has(b['Kode Barang'])) return false;
 
-            let currentSisa = stockMap[b['Kode Barang']] || 0;
-
+            // SYARAT KELUAR & TRANSFER: Sembunyikan kode barang yang stoknya 0 di Gudang Asal
             if (tipeTransaksi === 'Keluar' || tipeTransaksi === 'Transfer') {
-                if (currentSisa <= 0) return false;
+                let stokAsal = getGudangStock(selectedGudangAsal, b['Kode Barang']);
+                if (stokAsal <= 0) return false; 
             }
 
             if (tipeTransaksi === 'Masuk') {
@@ -703,7 +841,8 @@ function onJenisChangeRow(el, preselectKode = '') {
                 }
 
                 if (kategoriVal.toLowerCase() === 'cable') {
-                    if (currentSisa > 0) return false;
+                    let stokTujuan = getGudangStock(selectedGudangTujuan, b['Kode Barang']);
+                    if (stokTujuan > 0) return false;
                 }
             }
 
@@ -1013,11 +1152,11 @@ function openModal(index) {
             gudangAsalItems += `<div onclick="selectSearchableOption('gudang-asal-val', 'gudang-asal-input', 'gudang-asal-list', '${safeCode}', '${safeName}', () => { onTipeTransaksiChange(); onGudangAsalChange(); })" class="p-2 hover:bg-indigo-50 cursor-pointer text-[8pt] searchable-item">${g['Nama Gudang']}</div>`;
         });
 
-        let gudangTujuanItems = `<div onclick="selectSearchableOption('gudang-tujuan-val', 'gudang-tujuan-input', 'gudang-tujuan-list', '', '', null)" class="p-2 hover:bg-indigo-50 cursor-pointer text-[8pt] text-gray-500 italic searchable-item">-- Pilih Gudang Tujuan --</div>`;
+        let gudangTujuanItems = `<div onclick="selectSearchableOption('gudang-tujuan-val', 'gudang-tujuan-input', 'gudang-tujuan-list', '', '', () => { onGudangTujuanChange(); })" class="p-2 hover:bg-indigo-50 cursor-pointer text-[8pt] text-gray-500 italic searchable-item">-- Pilih Gudang Tujuan --</div>`;
         (db.gudang || []).forEach(g => {
             const safeName = (g['Nama Gudang'] || '').replace(/'/g, "\\'");
             const safeCode = (g['Kode Gudang'] || '').replace(/'/g, "\\'");
-            gudangTujuanItems += `<div onclick="selectSearchableOption('gudang-tujuan-val', 'gudang-tujuan-input', 'gudang-tujuan-list', '${safeCode}', '${safeName}', null)" class="p-2 hover:bg-indigo-50 cursor-pointer text-[8pt] searchable-item">${g['Nama Gudang']}</div>`;
+            gudangTujuanItems += `<div onclick="selectSearchableOption('gudang-tujuan-val', 'gudang-tujuan-input', 'gudang-tujuan-list', '${safeCode}', '${safeName}', () => { onGudangTujuanChange(); })" class="p-2 hover:bg-indigo-50 cursor-pointer text-[8pt] searchable-item">${g['Nama Gudang']}</div>`;
         });
 
         let headerHTML = `
@@ -1125,12 +1264,20 @@ function openModal(index) {
     let keys = [];
     if (currentSection === 'barang') {
         keys = ['Kategori', 'Jenis', 'Kode Barang', 'Nama Barang'];
+    } else if (currentSection === 'project') {
+        keys = ['Periode', 'Kode Project', 'Nama Project', 'Type', 'Region', 'No PR/PO', 'PO Plan', 'PO Final', 'Status PO', 'Status SND', 'Status Doc'];
     } else {
         keys = db[currentSection] && db[currentSection].length > 0 ? Object.keys(db[currentSection][0]) : [];
     }
 
     keys.forEach(key => {
-        let inputHtml = `<input type="text" name="${key}" value="${item[key] || ''}" class="w-full border p-2 rounded text-[9pt]" required>`;
+        let isRequired = (key === 'Kode Project' || key === 'Nama Project') ? 'required' : '';
+        let inputHtml = '';
+        if (key === 'Periode') {
+            inputHtml = `<input type="date" name="${key}" value="${item[key] || ''}" class="w-full border p-2 rounded text-[9pt]" ${isRequired}>`;
+        } else {
+            inputHtml = `<input type="text" name="${key}" value="${item[key] || ''}" class="w-full border p-2 rounded text-[9pt]" ${isRequired}>`;
+        }
         form.innerHTML += `<div><label class="block text-[9pt] font-medium mb-1 text-gray-700">${key}</label>${inputHtml}</div>`;
     });
     const modal = document.getElementById('modal');
