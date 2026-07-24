@@ -1,12 +1,12 @@
 const initialData = {
     "gudang": [{"Kode Gudang": "GDG-01", "Nama Gudang": "Gudang Pusat"}, {"Kode Gudang": "GDG-02", "Nama Gudang": "Gudang Cabang"}],
     "project": [{
-        "Kode Project": "PRJ-001", 
-        "Nama Project": "Proyek A",
         "Periode": "",
         "Type": "",
         "Region": "",
         "No PR/PO": "",
+        "Kode Project": "PRJ-001", 
+        "Nama Project": "Proyek A",
         "PO Plan": "",
         "PO Final": "",
         "Status PO": "",
@@ -977,7 +977,10 @@ function showBreakdownProyek(namaBarang) {
 function openModal(index) {
     editIndex = index;
     const btnSave = document.getElementById('btn-save');
-    if (btnSave) btnSave.classList.remove('hidden');
+    if (btnSave) {
+        btnSave.classList.remove('hidden');
+        btnSave.onclick = saveData; // Menghubungkan listener klik ke saveData() secara eksplisit
+    }
 
     let btnPdf = document.getElementById('btn-print-pdf');
     if(!btnPdf && btnSave && btnSave.parentNode) {
@@ -1274,22 +1277,39 @@ window.autoConvertCableStock = function(tglTransaksi, petugas) {
 function saveData() {
     const form = document.getElementById('data-form');
     if (!form) return;
-    if(!form.checkValidity()) {
-        form.reportValidity();
-        return;
+
+    // 1. Validasi Kolom Wajib
+    const requiredInputs = form.querySelectorAll('[required]');
+    for (let input of requiredInputs) {
+        if (!input.value.trim()) {
+            alert(`Harap isi kolom ${input.name || 'yang wajib diisi'}!`);
+            input.focus();
+            return;
+        }
     }
 
+    // 2. Validasi Transaksi
     if (currentSection === 'transaksi') {
         if (!validateCurrentRows()) {
             return;
         }
     }
 
-    const formData = new FormData(form);
     let isNewInput = (editIndex === -1);
 
+    // 3. Helper untuk membaca form secara universal (Aman untuk <div> maupun <form>)
+    function getFormValues(container) {
+        let data = {};
+        let inputs = container.querySelectorAll('input, select, textarea');
+        inputs.forEach(input => {
+            if (!input.name || input.name.endsWith('[]')) return;
+            data[input.name] = input.value;
+        });
+        return data;
+    }
+
     if (currentSection === 'project') {
-        let kodeProjInput = formData.get('Kode Project')?.trim().toLowerCase();
+        let kodeProjInput = (form.querySelector('[name="Kode Project"]')?.value || '').trim().toLowerCase();
         let isDuplicate = (db.project || []).some((p, index) => {
             if (!isNewInput && index === editIndex) return false;
             return (p['Kode Project'] || '').trim().toLowerCase() === kodeProjInput;
@@ -1301,30 +1321,37 @@ function saveData() {
         }
     }
 
-    if(currentSection === 'transaksi') {
-        let tgl = formData.get('Tanggal');
-        let idDoTo = formData.get('ID DO-TO'); 
-        let docVal = formData.get('No Doc'); 
-        let tipe = formData.get('Tipe Transaksi');
-        let asal = formData.get('Gudang Asal');
-        let tujuan = formData.get('Gudang Tujuan');
-        let proj = formData.get('Kode Project');
-        let petugas = formData.get('Petugas');
-        let ket = formData.get('Keterangan');
+    if (currentSection === 'transaksi') {
+        let tgl = form.querySelector('[name="Tanggal"]')?.value || '';
+        let idDoTo = form.querySelector('[name="ID DO-TO"]')?.value || ''; 
+        let docVal = form.querySelector('[name="No Doc"]')?.value || ''; 
+        let tipe = form.querySelector('[name="Tipe Transaksi"]')?.value || '';
+        let asal = form.querySelector('[name="Gudang Asal"]')?.value || '';
+        let tujuan = form.querySelector('[name="Gudang Tujuan"]')?.value || '';
+        let proj = form.querySelector('[name="Kode Project"]')?.value || '';
+        let petugas = form.querySelector('[name="Petugas"]')?.value || '';
+        let ket = form.querySelector('[name="Keterangan"]')?.value || '';
 
-        let kats = formData.getAll('Kategori[]');
-        let jens = formData.getAll('Jenis[]');
-        let kbs = formData.getAll('Kode Barang[]');
-        let nbs = formData.getAll('Nama Barang (Auto)[]');
-        let jmls = formData.getAll('Jumlah[]');
+        let kats = Array.from(form.querySelectorAll('[name="Kategori[]"]')).map(e => e.value);
+        let jens = Array.from(form.querySelectorAll('[name="Jenis[]"]')).map(e => e.value);
+        let kbs = Array.from(form.querySelectorAll('[name="Kode Barang[]"]')).map(e => e.value);
+        let nbs = Array.from(form.querySelectorAll('[name="Nama Barang (Auto)[]"]')).map(e => e.value);
+        let jmls = Array.from(form.querySelectorAll('[name="Jumlah[]"]')).map(e => e.value);
 
         if (kats.length === 0) {
             alert("Minimal harus ada 1 barang dalam transaksi!");
             return;
         }
 
+        for (let i = 0; i < kats.length; i++) {
+            if (!kats[i] || !kbs[i] || !jmls[i] || parseInt(jmls[i]) <= 0) {
+                alert("Harap lengkapi detail barang dan jumlah yang valid pada setiap baris!");
+                return;
+            }
+        }
+
         let newItems = [];
-        for(let i = 0; i < kats.length; i++){
+        for (let i = 0; i < kats.length; i++) {
             newItems.push({
                 "Tanggal": tgl,
                 "No Doc": docVal,
@@ -1352,11 +1379,12 @@ function saveData() {
             db.transaksi.push(...newItems);
         }
 
-        autoConvertCableStock(tgl, petugas);
+        if (typeof autoConvertCableStock === 'function') {
+            autoConvertCableStock(tgl, petugas);
+        }
     } 
     else {
-        let newItem = {};
-        for (let [key, value] of formData.entries()) { newItem[key] = value; }
+        let newItem = getFormValues(form);
         if (!db[currentSection]) db[currentSection] = [];
         if (isNewInput) db[currentSection].push(newItem);
         else db[currentSection][editIndex] = newItem;
