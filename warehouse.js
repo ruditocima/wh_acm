@@ -1278,6 +1278,13 @@ function openModal(index) {
         let inputHtml = '';
         if (key === 'Periode') {
             inputHtml = `<input type="date" name="${key}" value="${item[key] || ''}" class="w-full border p-2 rounded text-[9pt]" ${isRequired}>`;
+        } else if (key === 'Type' && currentSection === 'project') {
+            const typeOptions = ['Distribusi', 'Sub Feeder', 'Hub Feeder', 'Main Feeder', 'MTI', 'Permit', 'Rectifikasi', 'Uplink'];
+            let opts = `<option value="">-- Pilih Type --</option>`;
+            typeOptions.forEach(opt => {
+                opts += `<option value="${opt}" ${item[key] === opt ? 'selected' : ''}>${opt}</option>`;
+            });
+            inputHtml = `<select name="${key}" class="w-full border p-2 rounded text-[9pt]" ${isRequired}>${opts}</select>`;
         } else if (key === 'Region' && currentSection === 'project') {
             const regionOptions = ['ACH', 'BKT', 'PAD', 'PLB', 'PMN'];
             let opts = `<option value="">-- Pilih Region --</option>`;
