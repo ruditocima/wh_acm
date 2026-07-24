@@ -552,6 +552,16 @@ function onGudangAsalChange() {
     const projectHidden = document.getElementById('project-val');
     const projectInput = document.getElementById('project-input');
 
+    // Refresh pilihan Kode Barang di seluruh baris saat Gudang Asal berubah
+    const rows = document.querySelectorAll('#item-tbody tr');
+    rows.forEach(tr => {
+        let jenisSelect = tr.querySelector('select[name="Jenis[]"]');
+        if (jenisSelect && jenisSelect.value) {
+            let currentKode = tr.querySelector('select[name="Kode Barang[]"]')?.value || '';
+            onJenisChangeRow(jenisSelect, currentKode);
+        }
+    });
+
     if (!projectListContainer) return;
 
     let selectedProjectVal = projectHidden ? projectHidden.value : '';
@@ -595,37 +605,10 @@ function onGudangAsalChange() {
     projectListContainer.innerHTML = listHTML;
 }
 
-function getAvailableStockByCode() {
-    const tipeTransaksi = document.querySelector('[name="Tipe Transaksi"]')?.value || 'Masuk';
-    const selectedGudangAsal = document.querySelector('[name="Gudang Asal"]')?.value || '';
-    
-    if (tipeTransaksi !== 'Keluar' && tipeTransaksi !== 'Transfer') return null;
-
-    let stockMap = {};
-    (db.transaksi || []).forEach(t => {
-        let kode = t['Kode Barang'];
-        if (!kode) return;
-        let jml = parseInt(t['Jumlah'] || 0);
-
-        if (!stockMap[kode]) stockMap[kode] = 0;
-
-        if (selectedGudangAsal !== "") {
-            if (t['Gudang Tujuan'] === selectedGudangAsal) stockMap[kode] += jml;
-            if (t['Gudang Asal'] === selectedGudangAsal) stockMap[kode] -= jml;
-        } else {
-            if (t['Tipe Transaksi'] === 'Masuk') stockMap[kode] += jml;
-            if (t['Tipe Transaksi'] === 'Keluar') stockMap[kode] -= jml;
-        }
-    });
-
-    return stockMap;
-}
-
 function validateCurrentRows() {
     const tipeTransaksi = document.querySelector('[name="Tipe Transaksi"]')?.value || 'Masuk';
+    const selectedGudangAsal = document.querySelector('[name="Gudang Asal"]')?.value || '';
     const selectedGudangTujuan = document.querySelector('[name="Gudang Tujuan"]')?.value || '';
-
-    let stockMap = getAvailableStockByCode();
 
     const rows = document.querySelectorAll('#item-tbody tr');
     for (let row of rows) {
@@ -634,14 +617,12 @@ function validateCurrentRows() {
         let qtyInput = row.querySelector('input[name="Jumlah[]"]');
         let qty = parseInt(qtyInput?.value || 0);
 
-        if ((tipeTransaksi === 'Keluar' || tipeTransaksi === 'Transfer') && stockMap) {
-            if (kodeBarang) {
-                let sisaStok = stockMap[kodeBarang] || 0;
-                if (qty > sisaStok) {
-                    alert('Stok Kurang di Gudang Asal!');
-                    if (qtyInput) qtyInput.focus();
-                    return false;
-                }
+        if ((tipeTransaksi === 'Keluar' || tipeTransaksi === 'Transfer') && kodeBarang && selectedGudangAsal) {
+            let sisaStok = getGudangStock(selectedGudangAsal, kodeBarang);
+            if (qty > sisaStok) {
+                alert(`Stok ${kodeBarang} tidak mencukupi di Gudang Asal! (Sisa stok: ${sisaStok})`);
+                if (qtyInput) qtyInput.focus();
+                return false;
             }
         }
 
@@ -755,6 +736,16 @@ function onJenisChangeRow(el, preselectKode = '') {
         const selectedGudangAsal = document.querySelector('[name="Gudang Asal"]')?.value || '';
         const selectedGudangTujuan = document.querySelector('[name="Gudang Tujuan"]')?.value || '';
 
+        // Peringatan jika Gudang Asal / Tujuan belum dipilih
+        if ((tipeTransaksi === 'Keluar' || tipeTransaksi === 'Transfer') && !selectedGudangAsal) {
+            kodeSelect.innerHTML = '<option value="">-- Pilih Gudang Asal Dulu --</option>';
+            return;
+        }
+        if ((tipeTransaksi === 'Masuk' || tipeTransaksi === 'Transfer') && kategoriVal.toLowerCase() === 'cable' && !selectedGudangTujuan) {
+            kodeSelect.innerHTML = '<option value="">-- Pilih Gudang Tujuan Dulu --</option>';
+            return;
+        }
+
         let selectedKodeInRows = new Set();
         document.querySelectorAll('#item-tbody tr').forEach(row => {
             let sel = row.querySelector('select[name="Kode Barang[]"]');
@@ -763,13 +754,8 @@ function onJenisChangeRow(el, preselectKode = '') {
             }
         });
 
-        /* Logika Khusus untuk Kategori Cable dan Tipe Transaksi Masuk / Transfer */
+        /* 1. Logika Khusus untuk Kategori Cable & Tipe Transaksi Masuk / Transfer */
         if (kategoriVal.toLowerCase() === 'cable' && (tipeTransaksi === 'Masuk' || tipeTransaksi === 'Transfer')) {
-            if (!selectedGudangTujuan) {
-                kodeSelect.innerHTML = '<option value="">-- Pilih Gudang Tujuan Dulu --</option>';
-                return;
-            }
-
             let drumBarang = (db.barang || []).filter(b => 
                 (b['Kategori'] || '').toLowerCase() === 'cable' &&
                 b['Jenis'] === jenisVal &&
@@ -778,15 +764,21 @@ function onJenisChangeRow(el, preselectKode = '') {
 
             if (drumBarang.length > 0) {
                 let availableDrumBarang = drumBarang.filter(b => {
-                    let stok = getGudangStock(selectedGudangTujuan, b['Kode Barang']);
-                    return stok === 0;
+                    // Jika Transfer: Stok di Gudang Asal HARUS > 0
+                    if (tipeTransaksi === 'Transfer') {
+                        let stokAsal = getGudangStock(selectedGudangAsal, b['Kode Barang']);
+                        if (stokAsal <= 0) return false;
+                    }
+                    // Stok di Gudang Tujuan HARUS 0
+                    let stokTujuan = getGudangStock(selectedGudangTujuan, b['Kode Barang']);
+                    return stokTujuan === 0;
                 });
 
                 let autoGenerated = false;
                 let autoGeneratedCode = '';
 
-                // Jika semua barang bertipe Drum stoknya > 0, buat Kode Barang urutan baru secara otomatis
-                if (availableDrumBarang.length === 0) {
+                // Pada transaksi Masuk: Jika semua Drum stoknya > 0 di Gudang Tujuan, buat Kode Drum baru
+                if (tipeTransaksi === 'Masuk' && availableDrumBarang.length === 0) {
                     let newBarang = autoGenerateNextDrumBarang(jenisVal, kategoriVal);
                     if (newBarang) {
                         availableDrumBarang = [newBarang];
@@ -816,41 +808,15 @@ function onJenisChangeRow(el, preselectKode = '') {
             }
         }
 
-        /* Logika Standar untuk Kategori / Tipe Transaksi Lainnya */
-        let stockMap = {};
-        (db.transaksi || []).forEach(t => {
-            let kode = t['Kode Barang'];
-            if (!kode) return;
-            let jml = parseInt(t['Jumlah'] || 0);
-            if (!stockMap[kode]) stockMap[kode] = 0;
-
-            if (tipeTransaksi === 'Keluar' || tipeTransaksi === 'Transfer') {
-                if (selectedGudangAsal !== "") {
-                    if (t['Gudang Tujuan'] === selectedGudangAsal) stockMap[kode] += jml;
-                    if (t['Gudang Asal'] === selectedGudangAsal) stockMap[kode] -= jml;
-                } else {
-                    if (t['Tipe Transaksi'] === 'Masuk') stockMap[kode] += jml;
-                    if (t['Tipe Transaksi'] === 'Keluar') stockMap[kode] -= jml;
-                }
-            } else if (tipeTransaksi === 'Masuk') {
-                if (selectedGudangTujuan !== "") {
-                    if (t['Gudang Tujuan'] === selectedGudangTujuan) stockMap[kode] += jml;
-                    if (t['Gudang Asal'] === selectedGudangTujuan) stockMap[kode] -= jml;
-                } else {
-                    if (t['Tipe Transaksi'] === 'Masuk') stockMap[kode] += jml;
-                    if (t['Tipe Transaksi'] === 'Keluar') stockMap[kode] -= jml;
-                }
-            }
-        });
-
+        /* 2. Logika Umum (Termasuk Transaksi Keluar & Transaksi Lainnya) */
         let filteredBarang = (db.barang || []).filter(b => {
             if (b['Kategori'] !== kategoriVal || b['Jenis'] !== jenisVal) return false;
             if (selectedKodeInRows.has(b['Kode Barang'])) return false;
 
-            let currentSisa = stockMap[b['Kode Barang']] || 0;
-
+            // SYARAT KELUAR & TRANSFER: Sembunyikan kode barang yang stoknya 0 di Gudang Asal
             if (tipeTransaksi === 'Keluar' || tipeTransaksi === 'Transfer') {
-                if (currentSisa <= 0) return false;
+                let stokAsal = getGudangStock(selectedGudangAsal, b['Kode Barang']);
+                if (stokAsal <= 0) return false; 
             }
 
             if (tipeTransaksi === 'Masuk') {
@@ -859,7 +825,8 @@ function onJenisChangeRow(el, preselectKode = '') {
                 }
 
                 if (kategoriVal.toLowerCase() === 'cable') {
-                    if (currentSisa > 0) return false;
+                    let stokTujuan = getGudangStock(selectedGudangTujuan, b['Kode Barang']);
+                    if (stokTujuan > 0) return false;
                 }
             }
 
