@@ -1,12 +1,12 @@
 const initialData = {
     "gudang": [{"Kode Gudang": "GDG-01", "Nama Gudang": "Gudang Pusat"}, {"Kode Gudang": "GDG-02", "Nama Gudang": "Gudang Cabang"}],
     "project": [{
+        "Kode Project": "PRJ-001", 
+        "Nama Project": "Proyek A",
         "Periode": "",
         "Type": "",
         "Region": "",
         "No PR/PO": "",
-        "Kode Project": "PRJ-001", 
-        "Nama Project": "Proyek A",
         "PO Plan": "",
         "PO Final": "",
         "Status PO": "",
