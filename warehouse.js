@@ -15,7 +15,7 @@ const initialData = {
             "PO Final": "100",
             "Status PO": "Sudah",
             "Permit": "BA Open",
-            "Status SND": "Done",
+            "Status SND": "SNDK",
             "Civil Work": "Done",
             "Status Doc": "Complete"
         }
@@ -1303,6 +1303,13 @@ function openModal(index) {
             const permitOptions = ['BA Open', 'Donasi', 'BA Closed', 'Wait PO', 'Invoice', 'Closed'];
             let opts = `<option value="">-- Pilih Permit --</option>`;
             permitOptions.forEach(opt => {
+                opts += `<option value="${opt}" ${item[key] === opt ? 'selected' : ''}>${opt}</option>`;
+            });
+            inputHtml = `<select name="${key}" class="w-full border p-2 rounded text-[9pt]" ${isRequired}>${opts}</select>`;
+        } else if (key === 'Status SND' && currentSection === 'project') {
+            const sndStatusOptions = ['SNDK', 'Design', 'Pre APD', 'APD', 'DRM', 'Pre ABD', 'ABD', 'Closed'];
+            let opts = `<option value="">-- Pilih Status SND --</option>`;
+            sndStatusOptions.forEach(opt => {
                 opts += `<option value="${opt}" ${item[key] === opt ? 'selected' : ''}>${opt}</option>`;
             });
             inputHtml = `<select name="${key}" class="w-full border p-2 rounded text-[9pt]" ${isRequired}>${opts}</select>`;
