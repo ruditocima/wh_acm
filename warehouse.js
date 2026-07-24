@@ -6,14 +6,14 @@ const initialData = {
     "project": [
         {
             "Periode": "2026-07-16",
-            "Type": "Deployment",
+            "Type": "Distribusi",
             "Region": "ACH",
             "Kode Project": "PRJ-001", 
             "No PR-PO": "POS-2026-001",
             "Nama Project": "Proyek A",
             "PO Plan": "100",
             "PO Final": "100",
-            "Status PO": "Approved",
+            "Status PO": "Sudah",
             "Permit": "Done",
             "Status SND": "Done",
             "Civil Work": "Done",
@@ -1289,6 +1289,13 @@ function openModal(index) {
             const regionOptions = ['ACH', 'BKT', 'PAD', 'PLB', 'PMN'];
             let opts = `<option value="">-- Pilih Region --</option>`;
             regionOptions.forEach(opt => {
+                opts += `<option value="${opt}" ${item[key] === opt ? 'selected' : ''}>${opt}</option>`;
+            });
+            inputHtml = `<select name="${key}" class="w-full border p-2 rounded text-[9pt]" ${isRequired}>${opts}</select>`;
+        } else if (key === 'Status PO' && currentSection === 'project') {
+            const poStatusOptions = ['Belum', 'Sudah', 'Closed'];
+            let opts = `<option value="">-- Pilih Status PO --</option>`;
+            poStatusOptions.forEach(opt => {
                 opts += `<option value="${opt}" ${item[key] === opt ? 'selected' : ''}>${opt}</option>`;
             });
             inputHtml = `<select name="${key}" class="w-full border p-2 rounded text-[9pt]" ${isRequired}>${opts}</select>`;
