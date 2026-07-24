@@ -1252,7 +1252,13 @@ function openModal(index) {
     }
 
     if (btnPdf) btnPdf.classList.add('hidden');
-    form.className = "grid grid-cols-2 gap-4 text-[9pt]";
+
+    // Pengaturan tata letak kolom berdasarkan section
+    if (currentSection === 'project') {
+        form.className = "grid grid-cols-1 md:grid-cols-3 gap-4 text-[9pt]";
+    } else {
+        form.className = "grid grid-cols-2 gap-4 text-[9pt]";
+    }
     
     let keys = [];
     if (currentSection === 'barang') {
