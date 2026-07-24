@@ -38,14 +38,186 @@ const initialData = {
     ]
 };
 
-if (!window.db) {
-    window.db = JSON.parse(localStorage.getItem('wms_app_data')) || initialData;
-}
+// ==========================================
+// 1. PERBAIKAN INISIALISASI STATE WINDOW.DB
+// ==========================================
+const storedData = localStorage.getItem('wms_app_data');
+window._db_data = storedData ? JSON.parse(storedData) : initialData;
 
 Object.defineProperty(window, 'db', {
-    get() { return window._db_data || JSON.parse(localStorage.getItem('wms_app_data')) || initialData; },
-    set(val) { window._db_data = val; }
+    get() {
+        if (!window._db_data) {
+            const s = localStorage.getItem('wms_app_data');
+            window._db_data = s ? JSON.parse(s) : initialData;
+        }
+        return window._db_data;
+    },
+    set(val) {
+        window._db_data = val;
+    },
+    configurable: true
 });
+
+let currentSection = 'gudang';
+let editIndex = -1;
+
+function saveToLocal() { 
+    localStorage.setItem('wms_app_data', JSON.stringify(window.db)); 
+}
+
+/* Memperbaiki fungsi sync dengan Try-Catch agar tidak memblokir penutupan modal */
+function executeFirebaseSync() {
+    try {
+        if (typeof window.syncToFirebase === 'function' && window.syncToFirebase !== executeFirebaseSync) {
+            window.syncToFirebase();
+        }
+    } catch (err) {
+        console.error("Gagal melakukan sinkronisasi Firebase:", err);
+    }
+}
+
+// ==========================================
+// 2. PERBAIKAN FUNGSI SAVE DATA
+// ==========================================
+function saveData(e) {
+    if (e && e.preventDefault) e.preventDefault();
+
+    const form = document.getElementById('data-form');
+    if (!form) return;
+
+    // Validasi Kolom Wajib
+    const requiredInputs = form.querySelectorAll('[required]');
+    for (let input of requiredInputs) {
+        if (!input.value.trim()) {
+            let fieldName = input.name ? input.name.replace('[]', '') : 'yang wajib diisi';
+            alert(`Harap isi kolom ${fieldName}!`);
+            input.focus();
+            return;
+        }
+    }
+
+    // Validasi Transaksi (cek sisa stok jika Keluar/Transfer)
+    if (currentSection === 'transaksi') {
+        if (!validateCurrentRows()) {
+            return;
+        }
+    }
+
+    let isNewInput = (editIndex === -1);
+
+    // Helper untuk membaca form secara universal
+    function getFormValues(container) {
+        let data = {};
+        let inputs = container.querySelectorAll('input, select, textarea');
+        inputs.forEach(input => {
+            if (!input.name || input.name.endsWith('[]')) return;
+            data[input.name] = input.value;
+        });
+        return data;
+    }
+
+    // Cek Duplikasi Kode Project
+    if (currentSection === 'project') {
+        let kodeProjInput = (form.querySelector('[name="Kode Project"]')?.value || '').trim().toLowerCase();
+        let isDuplicate = (db.project || []).some((p, index) => {
+            if (!isNewInput && index === editIndex) return false;
+            return (p['Kode Project'] || '').trim().toLowerCase() === kodeProjInput;
+        });
+
+        if (isDuplicate) {
+            alert('Kode Project sudah digunakan! Harap gunakan Kode Project yang lain.');
+            return;
+        }
+    }
+
+    if (currentSection === 'transaksi') {
+        let tgl = form.querySelector('[name="Tanggal"]')?.value || '';
+        let idDoTo = form.querySelector('[name="ID DO-TO"]')?.value || ''; 
+        let docVal = form.querySelector('[name="No Doc"]')?.value || ''; 
+        let tipe = form.querySelector('[name="Tipe Transaksi"]')?.value || '';
+        let asal = form.querySelector('[name="Gudang Asal"]')?.value || '';
+        let tujuan = form.querySelector('[name="Gudang Tujuan"]')?.value || '';
+        let proj = form.querySelector('[name="Kode Project"]')?.value || '';
+        let petugas = form.querySelector('[name="Petugas"]')?.value || '';
+        let ket = form.querySelector('[name="Keterangan"]')?.value || '';
+
+        let kats = Array.from(form.querySelectorAll('[name="Kategori[]"]')).map(e => e.value);
+        let jens = Array.from(form.querySelectorAll('[name="Jenis[]"]')).map(e => e.value);
+        let kbs = Array.from(form.querySelectorAll('[name="Kode Barang[]"]')).map(e => e.value);
+        let nbs = Array.from(form.querySelectorAll('[name="Nama Barang (Auto)[]"]')).map(e => e.value);
+        let jmls = Array.from(form.querySelectorAll('[name="Jumlah[]"]')).map(e => e.value);
+
+        if (kats.length === 0) {
+            alert("Minimal harus ada 1 barang dalam transaksi!");
+            return;
+        }
+
+        for (let i = 0; i < kats.length; i++) {
+            if (!kats[i] || !kbs[i] || !jmls[i] || parseInt(jmls[i]) <= 0) {
+                alert("Harap lengkapi detail barang dan jumlah yang valid pada setiap baris!");
+                return;
+            }
+        }
+
+        let newItems = [];
+        for (let i = 0; i < kats.length; i++) {
+            newItems.push({
+                "Tanggal": tgl,
+                "No Doc": docVal,
+                "ID DO-TO": idDoTo,
+                "Tipe Transaksi": tipe,
+                "Gudang Asal": asal,
+                "Gudang Tujuan": tujuan,
+                "Kode Project": proj,
+                "Kategori": kats[i],
+                "Jenis": jens[i],
+                "Kode Barang": kbs[i],
+                "Nama Barang (Auto)": nbs[i],
+                "Jumlah": parseInt(jmls[i] || 0),
+                "Petugas": petugas,
+                "Keterangan": ket
+            });
+        }
+
+        if (!db.transaksi) db.transaksi = [];
+        
+        if (isNewInput) {
+            db.transaksi.push(...newItems); 
+        } else {
+            db.transaksi = db.transaksi.filter(t => t['No Doc'] !== docVal);
+            db.transaksi.push(...newItems);
+        }
+
+        if (typeof window.autoConvertCableStock === 'function') {
+            window.autoConvertCableStock(tgl, petugas);
+        }
+    } 
+    else {
+        let newItem = getFormValues(form);
+        if (!db[currentSection]) db[currentSection] = [];
+        if (isNewInput) db[currentSection].push(newItem);
+        else db[currentSection][editIndex] = newItem;
+    }
+
+    // Simpan ke Local Storage & Sync Firebase
+    saveToLocal();
+    executeFirebaseSync();
+    
+    // Tampilkan konfirmasi dan refresh tampilan
+    if (isNewInput) {
+        let lanjut = confirm("Data berhasil disimpan! Apakah Anda ingin lanjut Input Baru?");
+        if (lanjut) {
+            openModal(-1);
+        } else { 
+            closeModal(); 
+            renderTable(currentSection); 
+        }
+    } else {
+        alert("Data berhasil diperbarui!");
+        closeModal();
+        renderTable(currentSection); 
+    }
+}
 
 let currentSection = 'gudang';
 let editIndex = -1;
