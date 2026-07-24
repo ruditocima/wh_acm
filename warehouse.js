@@ -57,6 +57,77 @@ function deleteData(index) {
     }
 }
 
+/* Helper fungsi untuk menghitung stok barang di Gudang tertentu */
+function getGudangStock(gudangKode, kodeBarang) {
+    if (!gudangKode || !kodeBarang) return 0;
+    let st = 0;
+    (db.transaksi || []).forEach(t => {
+        if (t['Kode Barang'] !== kodeBarang) return;
+        let jml = parseInt(t['Jumlah'] || 0);
+        if (t['Gudang Tujuan'] === gudangKode) st += jml;
+        if (t['Gudang Asal'] === gudangKode) st -= jml;
+    });
+    return st;
+}
+
+/* Helper fungsi untuk Auto Generate Kode Barang Baru bertipe Drum */
+function autoGenerateNextDrumBarang(jenisVal, kategoriVal) {
+    let drumBarang = (db.barang || []).filter(b => 
+        (b['Kategori'] || '').toLowerCase() === (kategoriVal || 'cable').toLowerCase() &&
+        b['Jenis'] === jenisVal &&
+        (b['Kode Barang'] || '').startsWith('Drum')
+    );
+
+    if (drumBarang.length === 0) return null;
+
+    let maxSeq = 0;
+    let basePrefix = "";
+    let padLen = 2;
+    let sampleNama = drumBarang[0]['Nama Barang'] || '';
+
+    drumBarang.forEach(b => {
+        let code = b['Kode Barang'] || '';
+        let match = code.match(/^(.*?)(\d+)$/);
+        if (match) {
+            basePrefix = match[1];
+            let seqStr = match[2];
+            padLen = seqStr.length;
+            let seq = parseInt(seqStr, 10);
+            if (seq > maxSeq) {
+                maxSeq = seq;
+                sampleNama = b['Nama Barang'] || sampleNama;
+            }
+        }
+    });
+
+    if (!basePrefix) return null;
+
+    let nextSeq = maxSeq + 1;
+    let nextSeqStr = nextSeq.toString().padStart(padLen, '0');
+    let newKode = basePrefix + nextSeqStr;
+
+    let newNama = sampleNama;
+    let namaMatch = sampleNama.match(/^(.*?)(\d+)$/);
+    if (namaMatch) {
+        newNama = namaMatch[1] + nextSeqStr;
+    }
+
+    let newBarangObj = {
+        "Kategori": kategoriVal,
+        "Jenis": jenisVal,
+        "Kode Barang": newKode,
+        "Nama Barang": newNama
+    };
+
+    if (!db.barang.find(b => b['Kode Barang'] === newKode)) {
+        db.barang.push(newBarangObj);
+        saveToLocal();
+        syncToFirebase();
+    }
+
+    return newBarangObj;
+}
+
 /* Helper fungsi untuk Searchable Dropdown */
 function getGudangName(code) {
     if (!code) return '';
@@ -463,6 +534,17 @@ function onTipeTransaksiChange() {
     onGudangAsalChange();
 }
 
+function onGudangTujuanChange() {
+    const rows = document.querySelectorAll('#item-tbody tr');
+    rows.forEach(tr => {
+        let jenisSelect = tr.querySelector('select[name="Jenis[]"]');
+        if (jenisSelect && jenisSelect.value) {
+            let currentKode = tr.querySelector('select[name="Kode Barang[]"]')?.value || '';
+            onJenisChangeRow(jenisSelect, currentKode);
+        }
+    });
+}
+
 function onGudangAsalChange() {
     const tipeTransaksi = document.querySelector('[name="Tipe Transaksi"]')?.value;
     const gudangAsal = document.querySelector('[name="Gudang Asal"]')?.value;
@@ -541,23 +623,43 @@ function getAvailableStockByCode() {
 
 function validateCurrentRows() {
     const tipeTransaksi = document.querySelector('[name="Tipe Transaksi"]')?.value || 'Masuk';
-    if (tipeTransaksi !== 'Keluar' && tipeTransaksi !== 'Transfer') return true;
+    const selectedGudangTujuan = document.querySelector('[name="Gudang Tujuan"]')?.value || '';
 
     let stockMap = getAvailableStockByCode();
-    if (!stockMap) return true;
 
     const rows = document.querySelectorAll('#item-tbody tr');
     for (let row of rows) {
+        let kategori = row.querySelector('select[name="Kategori[]"]')?.value || '';
         let kodeBarang = row.querySelector('select[name="Kode Barang[]"]')?.value;
         let qtyInput = row.querySelector('input[name="Jumlah[]"]');
         let qty = parseInt(qtyInput?.value || 0);
 
-        if (kodeBarang) {
-            let sisaStok = stockMap[kodeBarang] || 0;
-            if (qty > sisaStok) {
-                alert('Stok Kurang');
+        if ((tipeTransaksi === 'Keluar' || tipeTransaksi === 'Transfer') && stockMap) {
+            if (kodeBarang) {
+                let sisaStok = stockMap[kodeBarang] || 0;
+                if (qty > sisaStok) {
+                    alert('Stok Kurang di Gudang Asal!');
+                    if (qtyInput) qtyInput.focus();
+                    return false;
+                }
+            }
+        }
+
+        // Aturan Khusus Kategori Cable & Berawalan Drum (Maksimal Stok 3000)
+        if (kategori.toLowerCase() === 'cable' && kodeBarang && kodeBarang.startsWith('Drum')) {
+            if (qty > 3000) {
+                alert(`Jumlah input untuk ${kodeBarang} tidak boleh melebihi 3000!`);
                 if (qtyInput) qtyInput.focus();
                 return false;
+            }
+
+            if (tipeTransaksi === 'Masuk' || tipeTransaksi === 'Transfer') {
+                let currentTargetStock = getGudangStock(selectedGudangTujuan, kodeBarang);
+                if (currentTargetStock + qty > 3000) {
+                    alert(`Total stok ${kodeBarang} di Gudang Tujuan tidak boleh melebihi 3000! (Stok saat ini: ${currentTargetStock}, Input: ${qty})`);
+                    if (qtyInput) qtyInput.focus();
+                    return false;
+                }
             }
         }
     }
@@ -600,7 +702,7 @@ function addTransactionRow(item = {}) {
             <input type="text" name="Nama Barang (Auto)[]" value="${item['Nama Barang (Auto)'] || ''}" readonly class="w-full border p-1 rounded bg-gray-100 text-[8pt]">
         </td>
         <td class="border p-1">
-            <input type="number" name="Jumlah[]" value="${item['Jumlah'] || ''}" class="w-full border p-1 rounded text-[8pt] text-center" required min="1">
+            <input type="number" name="Jumlah[]" value="${item['Jumlah'] || ''}" class="w-full border p-1 rounded text-[8pt] text-center" required min="1" max="3000">
         </td>
         <td class="border p-1 text-center">
             <button type="button" onclick="this.closest('tr').remove()" class="text-red-500 hover:text-red-700 font-bold px-2">&times;</button>
@@ -653,6 +755,68 @@ function onJenisChangeRow(el, preselectKode = '') {
         const selectedGudangAsal = document.querySelector('[name="Gudang Asal"]')?.value || '';
         const selectedGudangTujuan = document.querySelector('[name="Gudang Tujuan"]')?.value || '';
 
+        let selectedKodeInRows = new Set();
+        document.querySelectorAll('#item-tbody tr').forEach(row => {
+            let sel = row.querySelector('select[name="Kode Barang[]"]');
+            if (sel && sel.value && row !== tr) {
+                selectedKodeInRows.add(sel.value);
+            }
+        });
+
+        /* Logika Khusus untuk Kategori Cable dan Tipe Transaksi Masuk / Transfer */
+        if (kategoriVal.toLowerCase() === 'cable' && (tipeTransaksi === 'Masuk' || tipeTransaksi === 'Transfer')) {
+            if (!selectedGudangTujuan) {
+                kodeSelect.innerHTML = '<option value="">-- Pilih Gudang Tujuan Dulu --</option>';
+                return;
+            }
+
+            let drumBarang = (db.barang || []).filter(b => 
+                (b['Kategori'] || '').toLowerCase() === 'cable' &&
+                b['Jenis'] === jenisVal &&
+                (b['Kode Barang'] || '').startsWith('Drum')
+            );
+
+            if (drumBarang.length > 0) {
+                let availableDrumBarang = drumBarang.filter(b => {
+                    let stok = getGudangStock(selectedGudangTujuan, b['Kode Barang']);
+                    return stok === 0;
+                });
+
+                let autoGenerated = false;
+                let autoGeneratedCode = '';
+
+                // Jika semua barang bertipe Drum stoknya > 0, buat Kode Barang urutan baru secara otomatis
+                if (availableDrumBarang.length === 0) {
+                    let newBarang = autoGenerateNextDrumBarang(jenisVal, kategoriVal);
+                    if (newBarang) {
+                        availableDrumBarang = [newBarang];
+                        autoGenerated = true;
+                        autoGeneratedCode = newBarang['Kode Barang'];
+                    }
+                }
+
+                let nonDrumBarang = (db.barang || []).filter(b => 
+                    (b['Kategori'] || '').toLowerCase() === 'cable' &&
+                    b['Jenis'] === jenisVal &&
+                    !(b['Kode Barang'] || '').startsWith('Drum') &&
+                    !(b['Kode Barang'] || '').startsWith('Ext')
+                );
+
+                let finalFiltered = [...availableDrumBarang, ...nonDrumBarang].filter(b => !selectedKodeInRows.has(b['Kode Barang']));
+
+                finalFiltered.forEach(b => {
+                    let isSelected = (preselectKode === b['Kode Barang']) || (autoGenerated && b['Kode Barang'] === autoGeneratedCode);
+                    kodeSelect.innerHTML += `<option value="${b['Kode Barang']}" ${isSelected ? 'selected' : ''}>${b['Kode Barang']} - ${b['Nama Barang']}</option>`;
+                });
+
+                if (autoGenerated || preselectKode) {
+                    updateNamaBarangRow(kodeSelect);
+                }
+                return;
+            }
+        }
+
+        /* Logika Standar untuk Kategori / Tipe Transaksi Lainnya */
         let stockMap = {};
         (db.transaksi || []).forEach(t => {
             let kode = t['Kode Barang'];
@@ -676,14 +840,6 @@ function onJenisChangeRow(el, preselectKode = '') {
                     if (t['Tipe Transaksi'] === 'Masuk') stockMap[kode] += jml;
                     if (t['Tipe Transaksi'] === 'Keluar') stockMap[kode] -= jml;
                 }
-            }
-        });
-
-        let selectedKodeInRows = new Set();
-        document.querySelectorAll('#item-tbody tr').forEach(row => {
-            let sel = row.querySelector('select[name="Kode Barang[]"]');
-            if (sel && sel.value && row !== tr) {
-                selectedKodeInRows.add(sel.value);
             }
         });
 
@@ -1013,11 +1169,11 @@ function openModal(index) {
             gudangAsalItems += `<div onclick="selectSearchableOption('gudang-asal-val', 'gudang-asal-input', 'gudang-asal-list', '${safeCode}', '${safeName}', () => { onTipeTransaksiChange(); onGudangAsalChange(); })" class="p-2 hover:bg-indigo-50 cursor-pointer text-[8pt] searchable-item">${g['Nama Gudang']}</div>`;
         });
 
-        let gudangTujuanItems = `<div onclick="selectSearchableOption('gudang-tujuan-val', 'gudang-tujuan-input', 'gudang-tujuan-list', '', '', null)" class="p-2 hover:bg-indigo-50 cursor-pointer text-[8pt] text-gray-500 italic searchable-item">-- Pilih Gudang Tujuan --</div>`;
+        let gudangTujuanItems = `<div onclick="selectSearchableOption('gudang-tujuan-val', 'gudang-tujuan-input', 'gudang-tujuan-list', '', '', () => { onGudangTujuanChange(); })" class="p-2 hover:bg-indigo-50 cursor-pointer text-[8pt] text-gray-500 italic searchable-item">-- Pilih Gudang Tujuan --</div>`;
         (db.gudang || []).forEach(g => {
             const safeName = (g['Nama Gudang'] || '').replace(/'/g, "\\'");
             const safeCode = (g['Kode Gudang'] || '').replace(/'/g, "\\'");
-            gudangTujuanItems += `<div onclick="selectSearchableOption('gudang-tujuan-val', 'gudang-tujuan-input', 'gudang-tujuan-list', '${safeCode}', '${safeName}', null)" class="p-2 hover:bg-indigo-50 cursor-pointer text-[8pt] searchable-item">${g['Nama Gudang']}</div>`;
+            gudangTujuanItems += `<div onclick="selectSearchableOption('gudang-tujuan-val', 'gudang-tujuan-input', 'gudang-tujuan-list', '${safeCode}', '${safeName}', () => { onGudangTujuanChange(); })" class="p-2 hover:bg-indigo-50 cursor-pointer text-[8pt] searchable-item">${g['Nama Gudang']}</div>`;
         });
 
         let headerHTML = `
