@@ -3,10 +3,10 @@ const initialData = {
     "project": [
         {
             "Periode": "2026-07-16",
-            "Type": "Deployment",
-            "Region": "Region 1",
             "Kode Project": "PRJ-001", 
             "Nama Project": "Proyek A",
+            "Type": "Deployment",
+            "Region": "Region 1",
             "No PR/PO": "PO-2026-001",
             "PO Plan": "100",
             "PO Final": "100",
@@ -71,6 +71,7 @@ function deleteData(index) {
     }
 }
 
+/* Helper fungsi untuk menghitung stok barang di Gudang tertentu */
 function getGudangStock(gudangKode, kodeBarang) {
     if (!gudangKode || !kodeBarang) return 0;
     let st = 0;
@@ -83,6 +84,7 @@ function getGudangStock(gudangKode, kodeBarang) {
     return st;
 }
 
+/* Helper fungsi untuk Auto Generate Kode Barang Baru bertipe Drum */
 function autoGenerateNextDrumBarang(jenisVal, kategoriVal) {
     let drumBarang = (db.barang || []).filter(b => 
         (b['Kategori'] || '').toLowerCase() === (kategoriVal || 'cable').toLowerCase() &&
@@ -140,6 +142,7 @@ function autoGenerateNextDrumBarang(jenisVal, kategoriVal) {
     return newBarangObj;
 }
 
+/* Helper fungsi untuk Searchable Dropdown */
 function getGudangName(code) {
     if (!code) return '';
     let g = (db.gudang || []).find(x => x['Kode Gudang'] === code);
@@ -462,7 +465,7 @@ function renderTable(section, searchQuery = '') {
         } else if (section === 'barang') {
             keys = ['Kategori', 'Jenis', 'Kode Barang', 'Nama Barang', ...keys.filter(k => !['Kategori', 'Jenis', 'Kode Barang', 'Nama Barang'].includes(k))];
         } else if (section === 'project') {
-            keys = ['Periode', 'Type', 'Region', 'Kode Project', 'Nama Project', 'No PR/PO', 'PO Plan', 'PO Final', 'Status PO', 'Status SND', 'Status Doc', ...keys.filter(k => !['Periode', 'Type', 'Region', 'Kode Project', 'Nama Project', 'No PR/PO', 'PO Plan', 'PO Final', 'Status PO', 'Status SND', 'Status Doc'].includes(k))];
+            keys = ['Periode', 'Kode Project', 'Nama Project', 'Type', 'Region', 'No PR/PO', 'PO Plan', 'PO Final', 'Status PO', 'Status SND', 'Status Doc', ...keys.filter(k => !['Periode', 'Kode Project', 'Nama Project', 'Type', 'Region', 'No PR/PO', 'PO Plan', 'PO Final', 'Status PO', 'Status SND', 'Status Doc'].includes(k))];
         }
 
         keys.forEach(k => html += `<th class="border text-[9pt] font-bold uppercase text-gray-600">${k}</th>`);
@@ -487,7 +490,7 @@ function renderTable(section, searchQuery = '') {
         if(section === 'barang') defaultKeys = ["Kategori", "Jenis", "Kode Barang", "Nama Barang"];
         else if(section === 'transaksi') defaultKeys = ["Tanggal", "No Doc", "ID DO-TO", "Tipe Transaksi", "Gudang Asal", "Gudang Tujuan", "Kode Project", "Kategori", "Jenis", "Kode Barang", "Nama Barang (Auto)", "Jumlah", "Petugas", "Keterangan"];
         else if(section === 'gudang') defaultKeys = ["Kode Gudang", "Nama Gudang"];
-        else if(section === 'project') defaultKeys = ["Periode", "Type", "Region", "Kode Project", "Nama Project", "No PR/PO", "PO Plan", "PO Final", "Status PO", "Status SND", "Status Doc"];
+        else if(section === 'project') defaultKeys = ["Periode", "Kode Project", "Nama Project", "Type", "Region", "No PR/PO", "PO Plan", "PO Final", "Status PO", "Status SND", "Status Doc"];
 
         defaultKeys.forEach(k => html += `<th class="border text-[9pt] font-bold uppercase text-gray-600">${k}</th>`);
         html += `<th class="border text-[9pt] font-bold uppercase text-gray-600">Aksi</th></tr></thead><tbody><tr><td colspan="${defaultKeys.length + 1}" class="text-center p-4 text-gray-400">Tidak ada data ditemukan</td></tr>`;
@@ -565,6 +568,7 @@ function onGudangAsalChange() {
     const projectHidden = document.getElementById('project-val');
     const projectInput = document.getElementById('project-input');
 
+    // Refresh pilihan Kode Barang di seluruh baris saat Gudang Asal berubah
     const rows = document.querySelectorAll('#item-tbody tr');
     rows.forEach(tr => {
         let jenisSelect = tr.querySelector('select[name="Jenis[]"]');
@@ -638,6 +642,7 @@ function validateCurrentRows() {
             }
         }
 
+        // Aturan Khusus Kategori Cable & Berawalan Drum (Maksimal Stok 3000)
         if (kategori.toLowerCase() === 'cable' && kodeBarang && kodeBarang.startsWith('Drum')) {
             if (qty > 3000) {
                 alert(`Jumlah input untuk ${kodeBarang} tidak boleh melebihi 3000!`);
@@ -747,6 +752,7 @@ function onJenisChangeRow(el, preselectKode = '') {
         const selectedGudangAsal = document.querySelector('[name="Gudang Asal"]')?.value || '';
         const selectedGudangTujuan = document.querySelector('[name="Gudang Tujuan"]')?.value || '';
 
+        // Peringatan jika Gudang Asal / Tujuan belum dipilih
         if ((tipeTransaksi === 'Keluar' || tipeTransaksi === 'Transfer') && !selectedGudangAsal) {
             kodeSelect.innerHTML = '<option value="">-- Pilih Gudang Asal Dulu --</option>';
             return;
@@ -764,6 +770,7 @@ function onJenisChangeRow(el, preselectKode = '') {
             }
         });
 
+        /* 1. Logika Khusus untuk Kategori Cable & Tipe Transaksi Masuk / Transfer */
         if (kategoriVal.toLowerCase() === 'cable' && (tipeTransaksi === 'Masuk' || tipeTransaksi === 'Transfer')) {
             let drumBarang = (db.barang || []).filter(b => 
                 (b['Kategori'] || '').toLowerCase() === 'cable' &&
@@ -773,10 +780,12 @@ function onJenisChangeRow(el, preselectKode = '') {
 
             if (drumBarang.length > 0) {
                 let availableDrumBarang = drumBarang.filter(b => {
+                    // Jika Transfer: Stok di Gudang Asal HARUS > 0
                     if (tipeTransaksi === 'Transfer') {
                         let stokAsal = getGudangStock(selectedGudangAsal, b['Kode Barang']);
                         if (stokAsal <= 0) return false;
                     }
+                    // Stok di Gudang Tujuan HARUS 0
                     let stokTujuan = getGudangStock(selectedGudangTujuan, b['Kode Barang']);
                     return stokTujuan === 0;
                 });
@@ -784,6 +793,7 @@ function onJenisChangeRow(el, preselectKode = '') {
                 let autoGenerated = false;
                 let autoGeneratedCode = '';
 
+                // Pada transaksi Masuk: Jika semua Drum stoknya > 0 di Gudang Tujuan, buat Kode Drum baru
                 if (tipeTransaksi === 'Masuk' && availableDrumBarang.length === 0) {
                     let newBarang = autoGenerateNextDrumBarang(jenisVal, kategoriVal);
                     if (newBarang) {
@@ -814,10 +824,12 @@ function onJenisChangeRow(el, preselectKode = '') {
             }
         }
 
+        /* 2. Logika Umum (Termasuk Transaksi Keluar & Transaksi Lainnya) */
         let filteredBarang = (db.barang || []).filter(b => {
             if (b['Kategori'] !== kategoriVal || b['Jenis'] !== jenisVal) return false;
             if (selectedKodeInRows.has(b['Kode Barang'])) return false;
 
+            // SYARAT KELUAR & TRANSFER: Sembunyikan kode barang yang stoknya 0 di Gudang Asal
             if (tipeTransaksi === 'Keluar' || tipeTransaksi === 'Transfer') {
                 let stokAsal = getGudangStock(selectedGudangAsal, b['Kode Barang']);
                 if (stokAsal <= 0) return false; 
@@ -1096,7 +1108,6 @@ function openModal(index) {
     if(!btnPdf && btnSave && btnSave.parentNode) {
         btnPdf = document.createElement('button');
         btnPdf.id = 'btn-print-pdf';
-        btnPdf.type = "button";
         btnPdf.className = "px-4 py-2 bg-red-600 text-white rounded hover:bg-red-500 text-[9pt] hidden";
         btnPdf.innerText = "Print PDF";
         btnSave.parentNode.insertBefore(btnPdf, btnSave);
@@ -1106,9 +1117,7 @@ function openModal(index) {
     if (!form) return;
     form.innerHTML = '';
     
-    if (!db[currentSection]) db[currentSection] = [];
-    const item = (index === -1 || !db[currentSection][index]) ? {} : db[currentSection][index];
-    
+    const item = index === -1 ? {} : db[currentSection][index];
     const modalTitle = document.getElementById('modal-title');
     if (modalTitle) modalTitle.innerText = index === -1 ? 'Tambah Data' : 'Edit Data';
 
@@ -1237,6 +1246,7 @@ function openModal(index) {
             addTransactionRow();
         } else {
             let sameDocItems = (db.transaksi || []).filter(t => t['No Doc'] === item['No Doc']);
+            
             if (sameDocItems.length > 0) {
                 sameDocItems.forEach(docItem => {
                     addTransactionRow(docItem);
@@ -1255,15 +1265,13 @@ function openModal(index) {
     if (currentSection === 'barang') {
         keys = ['Kategori', 'Jenis', 'Kode Barang', 'Nama Barang'];
     } else if (currentSection === 'project') {
-        keys = ['Periode', 'Type', 'Region', 'Kode Project', 'Nama Project', 'No PR/PO', 'PO Plan', 'PO Final', 'Status PO', 'Status SND', 'Status Doc'];
-    } else if (currentSection === 'gudang') {
-        keys = ['Kode Gudang', 'Nama Gudang'];
+        keys = ['Periode', 'Kode Project', 'Nama Project', 'Type', 'Region', 'No PR/PO', 'PO Plan', 'PO Final', 'Status PO', 'Status SND', 'Status Doc'];
     } else {
         keys = db[currentSection] && db[currentSection].length > 0 ? Object.keys(db[currentSection][0]) : [];
     }
 
     keys.forEach(key => {
-        let isRequired = (key.includes('Kode') || key.includes('Nama')) ? 'required' : '';
+        let isRequired = (key === 'Kode Project' || key === 'Nama Project') ? 'required' : '';
         let inputHtml = '';
         if (key === 'Periode') {
             inputHtml = `<input type="date" name="${key}" value="${item[key] || ''}" class="w-full border p-2 rounded text-[9pt]" ${isRequired}>`;
@@ -1272,7 +1280,6 @@ function openModal(index) {
         }
         form.innerHTML += `<div><label class="block text-[9pt] font-medium mb-1 text-gray-700">${key}</label>${inputHtml}</div>`;
     });
-
     const modal = document.getElementById('modal');
     if (modal) modal.classList.remove('hidden');
 }
@@ -1397,7 +1404,6 @@ window.autoConvertCableStock = function(tglTransaksi, petugas) {
 function saveData() {
     const form = document.getElementById('data-form');
     if (!form) return;
-
     if(!form.checkValidity()) {
         form.reportValidity();
         return;
@@ -1413,17 +1419,15 @@ function saveData() {
     let isNewInput = (editIndex === -1);
 
     if (currentSection === 'project') {
-        let kodeProjInput = (formData.get('Kode Project') || '').trim().toLowerCase();
-        if (kodeProjInput) {
-            let isDuplicate = (db.project || []).some((p, index) => {
-                if (!isNewInput && index === editIndex) return false;
-                return (p['Kode Project'] || '').trim().toLowerCase() === kodeProjInput;
-            });
+        let kodeProjInput = formData.get('Kode Project')?.trim().toLowerCase();
+        let isDuplicate = (db.project || []).some((p, index) => {
+            if (!isNewInput && index === editIndex) return false;
+            return (p['Kode Project'] || '').trim().toLowerCase() === kodeProjInput;
+        });
 
-            if (isDuplicate) {
-                alert('Kode Project sudah digunakan! Harap gunakan Kode Project yang lain.');
-                return;
-            }
+        if (isDuplicate) {
+            alert('Kode Project sudah digunakan! Harap gunakan Kode Project yang lain.');
+            return;
         }
     }
 
@@ -1482,15 +1486,10 @@ function saveData() {
     } 
     else {
         let newItem = {};
-        for (let [key, value] of formData.entries()) { 
-            newItem[key] = value; 
-        }
+        for (let [key, value] of formData.entries()) { newItem[key] = value; }
         if (!db[currentSection]) db[currentSection] = [];
-        if (isNewInput) {
-            db[currentSection].push(newItem);
-        } else {
-            db[currentSection][editIndex] = newItem;
-        }
+        if (isNewInput) db[currentSection].push(newItem);
+        else db[currentSection][editIndex] = newItem;
     }
 
     saveToLocal();
@@ -1498,9 +1497,8 @@ function saveData() {
     
     if (isNewInput) {
         let lanjut = confirm("Data berhasil disimpan! Apakah Anda ingin lanjut Input Baru?");
-        if (lanjut) {
-            openModal(-1);
-        } else { 
+        if (lanjut) openModal(-1);
+        else { 
             closeModal(); 
             renderTable(currentSection); 
         }
