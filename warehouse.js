@@ -54,8 +54,9 @@ function saveToLocal() {
     localStorage.setItem('wms_app_data', JSON.stringify(window.db)); 
 }
 
-function syncToFirebase() {
-    if (typeof window.syncToFirebase === 'function') {
+/* Memperbaiki fungsi sync agar tidak terjadi perulangan tak terbatas (stack overflow) */
+function executeFirebaseSync() {
+    if (typeof window.syncToFirebase === 'function' && window.syncToFirebase !== executeFirebaseSync) {
         window.syncToFirebase();
     }
 }
@@ -64,7 +65,7 @@ function deleteData(index) {
     if(confirm("Yakin ingin menghapus data ini?")) {
         db[currentSection].splice(index, 1);
         saveToLocal();
-        syncToFirebase();
+        executeFirebaseSync();
         renderTable(currentSection);
     }
 }
@@ -527,14 +528,20 @@ function onGudangAsalChange() {
     projectListContainer.innerHTML = listHTML;
 }
 
+/* Memperbaiki perhitungan stok saat mode Edit agar tidak memicu 'Stok Kurang' */
 function getAvailableStockByCode() {
     const tipeTransaksi = document.querySelector('[name="Tipe Transaksi"]')?.value || 'Masuk';
     const selectedGudangAsal = document.querySelector('[name="Gudang Asal"]')?.value || '';
     
     if (tipeTransaksi !== 'Keluar' && tipeTransaksi !== 'Transfer') return null;
 
+    let currentEditingDoc = (editIndex !== -1 && db.transaksi && db.transaksi[editIndex]) ? db.transaksi[editIndex]['No Doc'] : null;
+
     let stockMap = {};
     (db.transaksi || []).forEach(t => {
+        // Abaikan item dari dokumen yang sedang di-edit agar stok tidak berkurang dua kali
+        if (currentEditingDoc && t['No Doc'] === currentEditingDoc) return;
+
         let kode = t['Kode Barang'];
         if (!kode) return;
         let jml = parseInt(t['Jumlah'] || 0);
@@ -569,7 +576,7 @@ function validateCurrentRows() {
         if (kodeBarang) {
             let sisaStok = stockMap[kodeBarang] || 0;
             if (qty > sisaStok) {
-                alert('Stok Kurang');
+                alert(`Stok untuk barang ${kodeBarang} tidak mencukupi (Tersedia: ${sisaStok})`);
                 if (qtyInput) qtyInput.focus();
                 return false;
             }
@@ -979,7 +986,9 @@ function openModal(index) {
     const btnSave = document.getElementById('btn-save');
     if (btnSave) {
         btnSave.classList.remove('hidden');
-        btnSave.onclick = saveData; // Menghubungkan listener klik ke saveData() secara eksplisit
+        btnSave.onclick = function(e) {
+            saveData(e);
+        };
     }
 
     let btnPdf = document.getElementById('btn-print-pdf');
@@ -1274,7 +1283,9 @@ window.autoConvertCableStock = function(tglTransaksi, petugas) {
     });
 };
 
-function saveData() {
+function saveData(e) {
+    if (e && e.preventDefault) e.preventDefault();
+
     const form = document.getElementById('data-form');
     if (!form) return;
 
@@ -1282,7 +1293,8 @@ function saveData() {
     const requiredInputs = form.querySelectorAll('[required]');
     for (let input of requiredInputs) {
         if (!input.value.trim()) {
-            alert(`Harap isi kolom ${input.name || 'yang wajib diisi'}!`);
+            let fieldName = input.name ? input.name.replace('[]', '') : 'yang wajib diisi';
+            alert(`Harap isi kolom ${fieldName}!`);
             input.focus();
             return;
         }
@@ -1297,7 +1309,7 @@ function saveData() {
 
     let isNewInput = (editIndex === -1);
 
-    // 3. Helper untuk membaca form secara universal (Aman untuk <div> maupun <form>)
+    // Helper untuk membaca form secara universal
     function getFormValues(container) {
         let data = {};
         let inputs = container.querySelectorAll('input, select, textarea');
@@ -1379,8 +1391,8 @@ function saveData() {
             db.transaksi.push(...newItems);
         }
 
-        if (typeof autoConvertCableStock === 'function') {
-            autoConvertCableStock(tgl, petugas);
+        if (typeof window.autoConvertCableStock === 'function') {
+            window.autoConvertCableStock(tgl, petugas);
         }
     } 
     else {
@@ -1391,7 +1403,7 @@ function saveData() {
     }
 
     saveToLocal();
-    syncToFirebase();
+    executeFirebaseSync();
     
     if (isNewInput) {
         let lanjut = confirm("Data berhasil disimpan! Apakah Anda ingin lanjut Input Baru?");
@@ -1405,3 +1417,28 @@ function saveData() {
         renderTable(currentSection); 
     }
 }
+
+/* Memastikan semua fungsi utama terekspos ke window */
+window.saveData = saveData;
+window.openModal = openModal;
+window.closeModal = closeModal;
+window.renderTable = renderTable;
+window.deleteData = deleteData;
+window.renderDashboard = renderDashboard;
+window.renderRekapStok = renderRekapStok;
+window.renderRekapStokProyek = renderRekapStokProyek;
+window.exportCSV = exportCSV;
+window.exportRekapStokCSV = exportRekapStokCSV;
+window.addTransactionRow = addTransactionRow;
+window.onKategoriChangeRow = onKategoriChangeRow;
+window.onJenisChangeRow = onJenisChangeRow;
+window.updateNamaBarangRow = updateNamaBarangRow;
+window.onTanggalChange = onTanggalChange;
+window.onTipeTransaksiChange = onTipeTransaksiChange;
+window.onGudangAsalChange = onGudangAsalChange;
+window.openSearchableDropdown = openSearchableDropdown;
+window.handleSearchableInput = handleSearchableInput;
+window.selectSearchableOption = selectSearchableOption;
+window.searchTransaksi = searchTransaksi;
+window.showBreakdown = showBreakdown;
+window.showBreakdownProyek = showBreakdownProyek;
